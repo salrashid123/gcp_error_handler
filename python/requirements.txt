@@ -1,0 +1,6 @@
+google-cloud-storage
+google-cloud-asset
+
+grpcio
+grpcio-status
+googleapis-common-protos

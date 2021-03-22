@@ -1,0 +1,23 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Launch Current File",
+            "request": "launch",
+            "mainClass": "${file}",
+            "args": ["-mode","extended","-checkResource","//cloudresourcemanager.googleapis.com/projects/fabled-ray-104117","-identity", "user:admin@esodemoapp2.com", "-scope","projects/fabled-ray-104117"]
+
+        },
+        {
+            "type": "java",
+            "name": "Launch TestApp",
+            "request": "launch",
+            "mainClass": "com.test.TestApp",
+            "projectName": "TestApp",
+        }
+    ]
+}
