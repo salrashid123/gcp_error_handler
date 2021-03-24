@@ -56,30 +56,21 @@ def extended(scope,checkResource,identity):
     # https://googleapis.dev/python/google-api-core/latest/exceptions.html
     # https://grpc.github.io/grpc/python/grpc.html
     # https://github.com/grpc/grpc/blob/master/examples/python/errors/client.py#L33
-    except grpc.RpcError as rpc_error:
-        print('Call failure: %s', rpc_error)
-        status = rpc_status.from_call(rpc_error)
-        for detail in status.details:
-            if detail.Is(error_details_pb2.Help.DESCRIPTOR):
-                info = error_details_pb2.Help()
-                detail.Unpack(info)
-                print('Help failure: %s', info)
-            else:
-                raise RuntimeError('Unexpected failure: %s' % detail)    
-    # except GoogleCloudError as err:    
-    except Exception as err:   
-
+    except GoogleCloudError as err:    
         print(err) 
         print(err.code)
         print(err.message)
         print(err.grpc_status_code)
         print("........................")
         for e in err.errors:
-            print(e.details())
-            print(e.code())
-            print(e.debug_error_string())
-            print(e.exception())
-
+          meta = e.trailing_metadata()
+          for m in meta:
+            if (m.key =='google.rpc.help-bin'):
+              info = error_details_pb2.Help()
+              info.ParseFromString(m.value)
+              for l in info.links:
+                print('     Help Url: ', l.url)
+                print('     Help Description: ', l.description)
 
 def usage():
     print ('\nUsage: main.py  '

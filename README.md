@@ -2,7 +2,7 @@
 
 >> **NOTE:**  this repo is just a placeholder...once i figure out how to actually catch and unmarshall the exceptions properly, i'll update this as v1 and wrap the errors in a library (if possible)
 
-Several GCP Services now return descriptive errors embedded within the top-level exception. For example, 
+Several GCP Services now return descriptive errors embedded within the top-level exception. For example,
 
 A) if you list pubsub topics and do not have permissions, you'd see
 
@@ -17,10 +17,10 @@ curl -s -H "Authorization: Bearer `gcloud auth print-access-token`" https://pubs
 }
 ```
 
-* `remark:` great...who is the user and what permissions do i need?
+* **`remark:`** great...who is the user and what permissions do i need?
 
 
-B) if you try to list a GCS bucket that doesn't exist, you'd see a `NOT FOUND` 
+B) if you try to list a GCS bucket that doesn't exist, you'd see a `NOT FOUND`
 
 ```json
 $  curl -H "Authorization: Bearer `gcloud auth print-access-token`"  https://storage.googleapis.com/storage/v1/b/mineral-minutia-820-fooo
@@ -39,7 +39,7 @@ $  curl -H "Authorization: Bearer `gcloud auth print-access-token`"  https://sto
 }
 ```
 
-* `remake`:  whats not found? the bucket..how do i resolve it?
+* **`remake`**:  whats not found? the bucket..how do i resolve it?
 
 
 C) if you try to access an object in GCS
@@ -61,7 +61,7 @@ $ curl -H "Authorization: Bearer `gcloud auth print-access-token`"  https://stor
 }
 ```
 
-* `remark`: Thats really good!...now i see who the user is and the permission!
+* **`remark`**: Thats really good!...now i see who the user is and the permission!
 
 D) if you try to check access permissions using [Cloud Asset API](https://cloud.google.com/asset-inventory/docs/reference/rest)
 
@@ -96,7 +96,7 @@ D) if you try to check access permissions using [Cloud Asset API](https://cloud.
 }
 ```
 
-* `remark:`  Thats awesome!...look at all the embedded *details*, links in the error response!
+* **`remark:`**  Thats awesome!...look at all the embedded *details*, links in the error response!
 
 ---
 
@@ -135,7 +135,7 @@ type ErrorItem struct {
 }
 ```
 
-We'll use golang as a base language for concrete examples.  At the top level, when you catch a generic authentication or api error, you can inspect it for more base top level descriptions by casting to `googleapis.Error`.  For details, you need to go one step further and convert the returned proto to `googleapi.Error.Details` (see [error_details.proto](https://github.com/googleapis/googleapis/blob/master/google/rpc/error_details.proto)).  There are several types of details that could be returned: 
+We'll use golang as a base language for concrete examples.  At the top level, when you catch a generic authentication or api error, you can inspect it for more base top level descriptions by casting to `googleapis.Error`.  For details, you need to go one step further and convert the returned proto to `googleapi.Error.Details` (see [error_details.proto](https://github.com/googleapis/googleapis/blob/master/google/rpc/error_details.proto)).  There are several types of details that could be returned:
 
 * `ErrorInfo`: Provides structured error information that is both stable and extensible.
 * `RetryInfo`: Describes when clients can retry a failed request, may be returned on `Code.UNAVAILABLE` or `Code.ABORTED`
@@ -242,10 +242,10 @@ $ go run main.go \
 
 2021/03/16 19:56:42 ================ Using REST (GCS) ======================
 2021/03/16 19:56:42 Error Code: 403
-2021/03/16 19:56:42 Error Message: 
+2021/03/16 19:56:42 Error Message:
 2021/03/16 19:56:42 Error Details: []
 2021/03/16 19:56:42 Error Body: <?xml version='1.0' encoding='UTF-8'?><Error><Code>AccessDenied</Code><Message>Access denied.</Message><Details>vault-seed-account@mineral-minutia-820.iam.gserviceaccount.com does not have storage.objects.get access to the Google Cloud Storage object.</Details></Error>
-2021/03/16 19:56:42 Errors: 
+2021/03/16 19:56:42 Errors:
 ```
 
 #### golang Detail
@@ -290,8 +290,6 @@ E0316 18:30:47.241093 3353123 main.go:131]    ErrorHelp Description To get a val
 
 ### Python
 
-https://grpc.github.io/grpc/python/index.html
-
 
 #### python Basic
 Basic top-level errors can be caught by directly using [google.cloud.exceptions.GoogleCloudError](https://gcloud.readthedocs.io/en/latest/_modules/google/cloud/exceptions.html)
@@ -303,7 +301,7 @@ Basic top-level errors can be caught by directly using [google.cloud.exceptions.
         print(blob)
     except GoogleCloudError as err:
         print(err.code)
-        print([err]) 
+        print([err])
         print("Details: ")
         for e in err.errors:
             for k, v in e.items():
@@ -317,7 +315,7 @@ $ python main.py --mode=basic      --gcsBucket fabled-ray-104117-bucket      --g
 
 HTTPStatus.FORBIDDEN
 [Forbidden('GET https://storage.googleapis.com/storage/v1/b/fabled-ray-104117-bucket/o/foo.txt?projection=noAcl&prettyPrint=false: vault-seed-account@mineral-minutia-820.iam.gserviceaccount.com does not have storage.objects.get access to the Google Cloud Storage object.')]
-Details: 
+Details:
   message vault-seed-account@mineral-minutia-820.iam.gserviceaccount.com does not have storage.objects.get access to the Google Cloud Storage object.
   domain global
   reason forbidden
@@ -325,22 +323,25 @@ Details:
 
 #### python Detail
 
->>> TODO: <this doesnt work yet!!!!>
-
-Detail errors should be casted using `grpc.RpcError` methods that convert 
+Detail errors should be casted using `GoogleCloudError` methods then extract from the trailing metadata
 
 - [grpc.Status](https://grpc.github.io/grpc/python/grpc_status.html)
 ```python
-    except grpc.RpcError as rpc_error:
-        print('Call failure: %s', rpc_error)
-        status = rpc_status.from_call(rpc_error)
-        for detail in status.details:
-            if detail.Is(error_details_pb2.Help.DESCRIPTOR):
-                info = error_details_pb2.Help()
-                detail.Unpack(info)
-                print('Help failure: %s', info)
-            else:
-                raise RuntimeError('Unexpected failure: %s' % detail)    
+except GoogleCloudError as err:    
+    print(err)
+    print(err.code)
+    print(err.message)
+    print(err.grpc_status_code)
+    print("........................")
+    for e in err.errors:
+      meta = e.trailing_metadata()
+      for m in meta:
+        if (m.key =='google.rpc.help-bin'):
+          info = error_details_pb2.Help()
+          info.ParseFromString(m.value)
+          for l in info.links:
+            print('     Help Url: ', l.url)
+            print('     Help Description: ', l.description)
 ```
 
 
@@ -349,6 +350,22 @@ python main.py --mode=extended \
    --checkResource="//cloudresourcemanager.googleapis.com/projects/fabled-ray-104117"   \
    --identity=user:admin@esodemoapp2.com  \
    --scope=projects/fabled-ray-104117
+```
+
+gives output
+
+```
+403 Request denied by Cloud IAM.
+HTTPStatus.FORBIDDEN
+Request denied by Cloud IAM.
+StatusCode.PERMISSION_DENIED
+........................
+     Help Url:  https://cloud.google.com/asset-inventory/docs/access-control#required_permissions
+     Help Description:  To check permissions required for this RPC:
+     Help Url:  https://cloud.google.com/resource-manager/docs/creating-managing-organization#retrieving_your_organization_id
+     Help Description:  To get a valid organization id:
+     Help Url:  https://cloud.google.com/resource-manager/docs/creating-managing-folders#viewing_or_listing_folders_and_projects
+     Help Description:  To get a valid folder or project id:
 ```
 
 ### Java
@@ -381,7 +398,7 @@ Catch basic exceptions using service-specific handlers.  For example for GCS, us
 mvn clean install exec:java -q \
    -Dexec.args="-mode basic -gcsBucket fabled-ray-104117-bucket -gcsObject foo.txt"
 
-StorageException: 
+StorageException:
   Code: 403
   Message: vault-seed-account@mineral-minutia-820.iam.gserviceaccount.com does not have storage.objects.get access to the Google Cloud Storage object.
   DebugInfo: null
@@ -393,8 +410,7 @@ StorageException:
 
 Detail messages must be marshalled out of generic `Exception` from within that the various Metadata types.  The type Keys within the metadata shows the types
 
-* `grpc-status-details-bin` 
-* `google.rpc.help-bin`
+* `grpc-status-details-bin`
 
 See [io.grpc.Status](https://grpc.github.io/grpc-java/javadoc/io/grpc/Status.html)
 
@@ -438,7 +454,7 @@ For example
         }
 ```
 
-The provided sample shows one such 
+Sample output is:
 
 ```bash
 mvn clean install exec:java -q \
@@ -470,7 +486,7 @@ Catch Basic errors as node exceptions without marshalling.  The `err` is actuall
   const storage = new Storage();
   var file =  storage.bucket(bucketName).file(objectName);
   file.download(function(err, contents) {
-      
+
       if (err) {
         // err is ApiError
         console.log("Error Code: " + err.code);
@@ -479,7 +495,7 @@ Catch Basic errors as node exceptions without marshalling.  The `err` is actuall
       }  else {
         console.log("file data: " + contents);   
       }
-  }); 
+  });
 ```
 
 ```bash
@@ -492,42 +508,40 @@ Error Errors:
 
 #### nodejs Detail
 
-Detail Messages are embedded inside the metadata fields of the RPC.  For example, 
+>>> Note..while the following works...this is certainly not righ
+
+Detail Messages are embedded inside the metadata fields of the RPC.  For example,
 
 ```javascript
-  const result =  client.analyzeIamPolicy(request, options).then(function(value) {
-    console.log(util.inspect(value, {depth: null}));
-  }, function(err) {
-    console.log('Code: ' + err.code);
-    console.log('Details: ' + err.details);
-    console.log('Message: ' + err.message);  
-    console.log(err.metadata)
-    if (err.metadata) {
-      const help_bytes = err.metadata.get('google.rpc.help-bin');
-      console.log(help_bytes.toString())
+const result =  client.analyzeIamPolicy(request, options).then(function(value) {
+  console.log(util.inspect(value, {depth: null}));
+}, function(err) {
+  console.log('Code: ' + err.code);
+  console.log('Details: ' + err.details);
+  console.log('Message: ' + err.message);  
+
+  if (err.metadata) {
+    // TODO: deserialize to approprate @type:      
+    const help_bytes = err.metadata.get('google.rpc.help-bin');
+    const protos = require('google-proto-files');
+    protos.load('./node_modules/google-proto-files/google/rpc/error_details.proto').then(function(root) {
+      const helpdef = root.lookup("google.rpc.Help");
+      const help = helpdef.decode(help_bytes[0])
+      help.links.forEach(element => {
+        console.log(element.description);
+        console.log(element.url);
+      })
+    }, function(err){
+      console.log(err)
+    }) ;
+  }
+
+});  
+}
 ```
 
 gives the error details but I'm not sure how to unmarshall in node
 
-```
-Code: 7
-Details: Request denied by Cloud IAM.
-Message: 7 PERMISSION_DENIED: Request denied by Cloud IAM.
-Metadata {
-  internalRepr:
-   Map {
-     'google.rpc.help-bin' => [ <Buffer 0a 80 01 0a 2b 54 6f 20 ... > ],
-     'grpc-status-details-bin' => [ <Buffer 08 07 12 1c 52 65 71 ... > ],
-     'grpc-server-stats-bin' => [ <Buffer 00 00 19 6f 7d 06 00 00 00 00> ] },
-  options: {} }
-
-
-+To check permissions required for this RPC:Qhttps://cloud.google.com/asset-inventory/docs/access-control#required_permissions
-
-To get a valid organization id:mhttps://cloud.google.com/resource-manager/docs/creating-managing-organization#retrieving_your_organization_id
-
-To get a valid folder or project id:phttps://cloud.google.com/resource-manager/docs/creating-managing-folders#viewing_or_listing_folders_and_projects
-```
 
 ```bash
 $ node main.js --mode=extended \
@@ -536,6 +550,19 @@ $ node main.js --mode=extended \
   --scope=projects/fabled-ray-104117
 ```
 
+gives output
+
+```
+Code: 7
+Details: Request denied by Cloud IAM.
+Message: 7 PERMISSION_DENIED: Request denied by Cloud IAM.
+To check permissions required for this RPC:
+https://cloud.google.com/asset-inventory/docs/access-control#required_permissions
+To get a valid organization id:
+https://cloud.google.com/resource-manager/docs/creating-managing-organization#retrieving_your_organization_id
+To get a valid folder or project id:
+https://cloud.google.com/resource-manager/docs/creating-managing-folders#viewing_or_listing_folders_and_projects
+```
 
 
 ### dotnet
@@ -571,8 +598,8 @@ Message: vault-seed-account@mineral-minutia-820.iam.gserviceaccount.com does not
 ServiceName: storage
 Source: Google.Cloud.Storage.V1
 HttpStatusCode: Forbidden
-HelpLink: 
-Error: 
+HelpLink:
+Error:
 ```
 
 #### dotnet Detail
@@ -584,9 +611,8 @@ $ dotnet run --mode=extended \
   --scope=projects/fabled-ray-104117
 ```
 
->> TODO: i'm not sure how to do this
+>> TODO: i'm not sure how to do this...the following works but is pretty ineffecient
 
-The following does return the trailers...but i need to unmarshall to the type
 ```csharp
             try
             {
@@ -616,20 +642,64 @@ The following does return the trailers...but i need to unmarshall to the type
 
                 Console.WriteLine("Status.StatusCode: " + e.Status.StatusCode);
                 Console.WriteLine("Status.Detail: " + e.Status.Detail);
-                foreach (Grpc.Core.Metadata.Entry m in e.Trailers ){
-                    Console.WriteLine(" metadata " + m);
+
+                PrintRpcExceptionDetails(e);
+            }
+        }
+        // https://github.com/chwarr/grpc-dotnet-google-rpc-status/blob/master/client/Program.cs
+        private static void PrintRpcExceptionDetails(RpcException ex)
+        {
+            byte[]? statusBytes = null;
+
+            foreach (Metadata.Entry me in ex.Trailers)
+            {
+
+                if (me.Key == StatusDetailsTrailerName)
+                {
+                    statusBytes = me.ValueBytes;
                 }
             }
+
+            if (statusBytes is null)
+            {
+                return;
+            }
+
+            var status = Google.Rpc.Status.Parser.ParseFrom(statusBytes);
+
+            foreach (Any any in status.Details)
+            {
+                PrintRPCDetails(any);
+            }
+        }
+
+        private static void PrintRPCDetails(Any any)
+        {
+            if (any.TryUnpack(out Google.Rpc.BadRequest br))
+            {
+                Console.WriteLine($"  BadRequest {br}");                
+            }
+            else if (any.TryUnpack(out Google.Rpc.PreconditionFailure pf))
+            {
+                Console.WriteLine($"  PreconditionFailure {pf}");
+            } else if (any.TryUnpack(out Google.Rpc.Help h))
+            {                
+                foreach (Types.Link l in h.Links)
+                {
+                    Console.WriteLine("    Description: " + l.Description);
+                    Console.WriteLine("    URL: " + l.Url);                    
+                }
+            }
+        }
 ```
 
-```
-
-Message: Status(StatusCode="PermissionDenied", Detail="Request denied by Cloud IAM.", DebugException="Grpc.Core.Internal.CoreErrorDetailException: {"created":"@1616430281.975483699","description":"Error received from peer call.cc","file_line":1062,"grpc_message":"Request denied by Cloud IAM.","grpc_status":7}")
-Status: Status(StatusCode="PermissionDenied", Detail="Request denied by Cloud IAM.", DebugException="Grpc.Core.Internal.CoreErrorDetailException: {"created":"@1616430281.975483699","description":"Error received from peer call.cc","file_line":1062,"grpc_message":"Request denied by Cloud IAM.","grpc_status":7}")
+```text
 Status.StatusCode: PermissionDenied
-
 Status.Detail: Request denied by Cloud IAM.
- metadata [Entry: key=google.rpc.help-bin, valueBytes=System.Byte[]]
- metadata [Entry: key=grpc-status-details-bin, valueBytes=System.Byte[]]
- metadata [Entry: key=grpc-server-stats-bin, valueBytes=System.Byte[]]
+    Description: To check permissions required for this RPC:
+    URL: https://cloud.google.com/asset-inventory/docs/access-control#required_permissions
+    Description: To get a valid organization id:
+    URL: https://cloud.google.com/resource-manager/docs/creating-managing-organization#retrieving_your_organization_id
+    Description: To get a valid folder or project id:
+    URL: https://cloud.google.com/resource-manager/docs/creating-managing-folders#viewing_or_listing_folders_and_projects
 ```

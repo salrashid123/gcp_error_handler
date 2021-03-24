@@ -52,21 +52,21 @@ function Extended(
     console.log('Code: ' + err.code);
     console.log('Details: ' + err.details);
     console.log('Message: ' + err.message);  
-    console.log(err.metadata)
-
     
     if (err.metadata) {
-      // TODO: deserialize to approprate @type:
-      
+      // TODO: deserialize to approprate @type:      
       const help_bytes = err.metadata.get('google.rpc.help-bin');
-
-      console.log(help_bytes.toString())
-      
-      //const gax = require('grpc');
-      //var message = new google.rpc.Help();
-      //const details = message.decode(help_bytes);
-      //const details = message.deserializeBinary(help_bytes);
-      //console.log(details)
+      const protos = require('google-proto-files');
+      protos.load('./node_modules/google-proto-files/google/rpc/error_details.proto').then(function(root) {
+        const helpdef = root.lookup("google.rpc.Help");
+        const help = helpdef.decode(help_bytes[0])
+        help.links.forEach(element => {
+          console.log(element.description);
+          console.log(element.url);
+        })
+      }, function(err){
+        console.log(err)
+      }) ;
     }
 
   });  

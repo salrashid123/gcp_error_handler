@@ -9,11 +9,16 @@ using Google.Api.Gax.ResourceNames;
 using Google.Cloud.Asset.V1;
 using Google.Protobuf.WellKnownTypes;
 
+using static Google.Rpc.Help;
+
+using Grpc.Core;
+
 using System.IO;
 namespace dotnet
 {
     class Program
     {
+        private const string StatusDetailsTrailerName = "grpc-status-details-bin";
         static void Main(string[] args)
         {
 
@@ -73,12 +78,56 @@ namespace dotnet
 
                 Console.WriteLine("Status.StatusCode: " + e.Status.StatusCode);
                 Console.WriteLine("Status.Detail: " + e.Status.Detail);
-                foreach (Grpc.Core.Metadata.Entry m in e.Trailers ){
-                    Console.WriteLine(" metadata " + m);
+
+                PrintRpcExceptionDetails(e);
+            }
+        }
+        // https://github.com/chwarr/grpc-dotnet-google-rpc-status/blob/master/client/Program.cs
+        private static void PrintRpcExceptionDetails(RpcException ex)
+        {
+            byte[]? statusBytes = null;
+
+            foreach (Metadata.Entry me in ex.Trailers)
+            {
+
+                if (me.Key == StatusDetailsTrailerName)
+                {
+                    statusBytes = me.ValueBytes;
                 }
+            }
+
+            if (statusBytes is null)
+            {
+                return;
+            }
+
+            var status = Google.Rpc.Status.Parser.ParseFrom(statusBytes);
+
+            foreach (Any any in status.Details)
+            {
+                PrintRPCDetails(any);
             }
         }
 
+        private static void PrintRPCDetails(Any any)
+        {
+            if (any.TryUnpack(out Google.Rpc.BadRequest br))
+            {
+                Console.WriteLine($"  BadRequest {br}");                
+            }
+            else if (any.TryUnpack(out Google.Rpc.PreconditionFailure pf))
+            {
+                Console.WriteLine($"  PreconditionFailure {pf}");
+            } else if (any.TryUnpack(out Google.Rpc.Help h))
+            {                
+                foreach (Types.Link l in h.Links)
+                {
+                    Console.WriteLine("    Description: " + l.Description);
+                    Console.WriteLine("    URL: " + l.Url);                    
+                }
+            }
+        }
+    
         private void Basic(string bucketName, string objectName)
         {
             var storage = StorageClient.Create();
