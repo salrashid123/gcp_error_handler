@@ -39,7 +39,7 @@ var (
 func init() {
 }
 
-func runTestCases(err error) {
+func runTestCases(ctx context.Context, client interface{}, err error) {
 	fmt.Printf("Default:\n%v\n", err)
 	fmt.Println("------------------------------------")
 	gerr := gcperrors.New(gcperrors.Error{
@@ -49,6 +49,11 @@ func runTestCases(err error) {
 	fmt.Println("------------------------------------")
 
 	os.Setenv("GOOGLE_ENABLE_ERROR_DETAIL", "true")
+
+	// defEnv := gcperrors.NewWithClient(ctx, client, gcperrors.Error{
+	// 	Err:         err,
+	// 	ReInterpret: true,
+	// })
 
 	defEnv := gcperrors.New(gcperrors.Error{
 		//Err: gerr.Err,
@@ -136,7 +141,7 @@ func main() {
 			}
 			return nil
 		}); err != nil {
-			runTestCases(err)
+			runTestCases(ctx, computeService, err)
 			return
 
 		}
@@ -155,7 +160,7 @@ func main() {
 		obj := bkt.Object(*gcsObject)
 		r, err := obj.NewReader(ctx)
 		if err != nil {
-			runTestCases(err)
+			runTestCases(ctx, storageClient, err)
 			return
 		}
 		defer r.Close()
@@ -178,7 +183,7 @@ func main() {
 				break
 			}
 			if err != nil {
-				runTestCases(err)
+				runTestCases(ctx, client, err)
 				return
 			}
 			topics = append(topics, topic)
@@ -192,11 +197,6 @@ func main() {
 
 		assetClient, err := asset.NewClient(ctx)
 		if err != nil {
-			err := gcperrors.New(gcperrors.Error{
-				Err:         err,
-				PrettyPrint: false,
-			})
-
 			fmt.Printf("%v\n", err)
 			return
 		}
@@ -214,7 +214,7 @@ func main() {
 		}
 		resp, err := assetClient.AnalyzeIamPolicy(ctx, req)
 		if err != nil {
-			runTestCases(err)
+			runTestCases(ctx, assetClient, err)
 			return
 		}
 

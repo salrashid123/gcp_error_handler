@@ -413,10 +413,10 @@ for example, the output of
 		bkt := storageClient.Bucket(*gcsBucket)
 		obj := bkt.Object(*gcsObject)
 		r, err := obj.NewReader(ctx)
-		fmt.Printf("Default:\n%v\n", err)
-		return
+    if err != nil {
+			fmt.Printf("Default:\n%v\n", err)
+			return
 		}
-}
 ```
 
 Will give
