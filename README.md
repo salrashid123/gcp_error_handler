@@ -1,8 +1,10 @@
 ### Decoding GCP Errors Details
 
->> **NOTE:**  this repo is just a placeholder...once i figure out how to actually catch and unmarshall the exceptions properly, i'll update this as v1 and wrap the errors in a library (if possible)
+This article describes how to extract and use the embedded error messages provided by Google Cloud APIs.
 
-Several GCP Services now return descriptive errors embedded within the top-level exception. For example,
+As background, here is an enumeration of some the formatted errors you may see with REST api calls:
+
+---
 
 A) if you list pubsub topics and do not have permissions, you'd see
 
@@ -17,7 +19,9 @@ curl -s -H "Authorization: Bearer `gcloud auth print-access-token`" https://pubs
 }
 ```
 
-* **`remark:`** great...who is the user and what permissions do i need?
+> great...who is the user and what permissions do i need?
+
+---
 
 
 B) if you try to list a GCS bucket that doesn't exist, you'd see a `NOT FOUND`
@@ -39,8 +43,9 @@ $  curl -H "Authorization: Bearer `gcloud auth print-access-token`"  https://sto
 }
 ```
 
-* **`remake`**:  whats not found? the bucket..how do i resolve it?
+> whats not found? the bucket..how do i resolve it?
 
+---
 
 C) if you try to access an object in GCS
 
@@ -61,7 +66,9 @@ $ curl -H "Authorization: Bearer `gcloud auth print-access-token`"  https://stor
 }
 ```
 
-* **`remark`**: Thats really good!...now i see who the user is and the permission!
+> Thats really good!...now i see who the user is and the permission!
+
+---
 
 D) if you try to check access permissions using [Cloud Asset API](https://cloud.google.com/asset-inventory/docs/reference/rest)
 
@@ -96,7 +103,48 @@ D) if you try to check access permissions using [Cloud Asset API](https://cloud.
 }
 ```
 
-* **`remark:`**  Thats awesome!...look at all the embedded *details*, links in the error response!
+
+>  Thats awesome!...look at all the embedded *details*, links in the error response!
+
+We're not done yet...the error details is a list of different types...for example, if you intentionally provide a malformed request (eg use `/v1/fooprojects/fabled-ray..` instead of `/v1/projects/fabled-ray`), you will see a slightly different response
+
+```json
+{
+  "error": {
+    "code": 400,
+    "message": "Invalid parent in request.",
+    "status": "INVALID_ARGUMENT",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.BadRequest",
+        "fieldViolations": [
+          {
+            "field": "parent",
+            "description": "Invalid parent in request."
+          }
+        ]
+      },
+      {
+        "@type": "type.googleapis.com/google.rpc.Help",
+        "links": [
+          {
+            "description": "To check permissions required for this RPC:",
+            "url": "https://cloud.google.com/asset-inventory/docs/access-control#required_permissions"
+          },
+          {
+            "description": "To get a valid organization id:",
+            "url": "https://cloud.google.com/resource-manager/docs/creating-managing-organization#retrieving_your_organization_id"
+          },
+          {
+            "description": "To get a valid folder or project id:",
+            "url": "https://cloud.google.com/resource-manager/docs/creating-managing-folders#viewing_or_listing_folders_and_projects"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
 
 ---
 
@@ -104,9 +152,13 @@ D) if you try to check access permissions using [Cloud Asset API](https://cloud.
 
 Now, what are these details?
 
-These are just standard and extended error responses Google APIs return (or should return).  The expectation is that all GCP APIs return meaningful errors in the format and structure described in [API Error Design](https://cloud.google.com/apis/design/errors) and  [google.rpc](https://github.com/googleapis/googleapis/tree/master/google/rpc).
+These are just standard and extended error responses Google APIs return (or should return).  The expectation is that all GCP APIs will eventually return meaningful errors in the format and structure described in [API Error Design](https://cloud.google.com/apis/design/errors) and [google.rpc](https://github.com/googleapis/googleapis/tree/master/google/rpc).  The format for the errors returned is a bit different depending on several factors such as the API in question and transport used (rest, grpc). As you can tell from the above examples, some APIs return more information than others..this article is about how to parse the detailed messages sent and a small library in golang that autoparses into a standard go `Error`. We will use REST and gRPC as the transports and GCS, PubSub, Compute and Asset API as examples and show how error message extraction works
 
-In golang, this translates to the [googleapis.Error](https://pkg.go.dev/google.golang.org/api/googleapi#Error) struct where the really good information is inside the `Details []interface{}` which itself is a struct of various types (described below)
+GCS and Compute will demonstrate basic errors while Asset API will show us how to parse out complex error details from the gRPC response.
+
+As a bit more background on the errors format,  the errors translates to the [googleapis.Error](https://pkg.go.dev/google.golang.org/api/googleapi#Error) golang struct shown below.
+
+notice the`Details []interface{}` which is what we're after...thats where the embedded error details is transmitted as a proto during gRPC calls.
 
 
 ```golang
@@ -143,32 +195,44 @@ We'll use golang as a base language for concrete examples.  At the top level, wh
 * `BadRequest`: Describes violations in a client request, may be returned on `Code.INVALID_ARGUMENT`
 * `Help`: Provides links to documentation or for performing an out of band action.
 
-What this repo seeks to do is to provide a prescriptive way in various languages for your application to catch, log and handle the descriptive errors as well as to provide a wrapper library that encapsulates all this.  By the latter it would be a wrapper Error handler that your application can delegate to that does the internal proto unmarshalling
+What do you mean "convert protos"?...Well, unfortunately, the error Details in gRPC calls is returned as an encoded [google.protobuf.Any*](https://developers.google.com/protocol-buffers/docs/proto3#any)...which means you need to carefuly extract them out
+
+At time of writing, error Detail messages must be marshalled  out of `gRPC Metadata Trailers`.  Golang does this for you automatically but in the other languages, you need to extract the following fields to get at the embedded data.
+
+For example, 
+
+* `grpc-status-help-bin`
+* `grpc-status-badrequest-bin`
+* `grpc-status-errorinfo-bin`
+
+For example, in python, see the `help` errors here:
+
+![images/trailer.png](images/trailer.png)
+
+The value field in the screenshot above for `grpc-status-help-bin` trailer is actually an encoded protobuf of an Any type that needs to get converted into `google.rpc.Help`!...which is a pain but atleast in go it did detect and extract the field for you..in the other languages, you need to do this the really hard way.
+
+In summary, what this repo seeks to do is to provide a way for your application to catch and use these embedded data...or atleast just log them.
 
 We will start off with `gcloud`, then have bindings in golang, java, python, nodejs and dotnet and will be using `GOOGLE_APPLICATION_CREDENTIALS` environment variable and service accounts primarily.  
 
 ---
 
+`Table of Contents:`
+
 * [gcloud](#gcloud)
-    - [gcloud basic](#gcloud-basic)
-    - [gcloud detail](#gcloud-detail)
 * [golang](#golang)
-    - [golang basic](#golang-basic)
-    - [golang detail](#golang-detail)
-* [python](#python)
-    - [python basic](#python-basic)
-    - [python detail](#python-detail)
-* [java](#java)
-    - [java basic](#java-basic)
-    - [java detail](#java-detail)
-* [nodejs](#nodejs)
-    - [nodejs basic](#nodejs-basic)
-    - [nodejs detail](#nodejs-detail)
-* [dotnet](#dotnet)
-    - [dotnet basic](#dotnet-basic)
-    - [dotnet detail](#dotnet-detail)
+    - [Default Client Error details](#default-client-error-details)
+* [Language Bindings](#language-bindings)
+    - [python](#python)
+    - [java](#java)
+    - [nodejs](#nodejs)
+    - [dotnet](#dotnet)
+
 ---
 
+### gcloud
+
+`gcloud` cli by default does not use the environment variables for Application default credentials so we have to manually instruct it to use the service account
 
 First download a service account and export the variables for application default credentials
 
@@ -178,18 +242,11 @@ export PROJECT_ID=`gcloud config get-value core/project`
 export PROJECT_NUMBER=`gcloud projects describe $PROJECT_ID --format='value(projectNumber)'`
 ```
 
-### gcloud
-
-`gcloud` cli by default does not use the environment variables for Application default credentials so we have to manually instruct it to use the service account
-
 ```bash
 $ gcloud auth activate-service-account --key-file=/path/to/svc_account.json
 ```
 
 Use gcloud to access GCS and Cloud Asset Inventory.  Notice the two formats for errors returned:
-
-
-#### gcloud Basic
 
 The GCS api does not return detailed messages such as the `type.googleapis.com/google.rpc.Help` structure so we see just basic data
 
@@ -199,15 +256,13 @@ $ gcloud alpha storage cp gs://fabled-ray-104117-bucket/foo.txt .
 ERROR: gcloud crashed (GcsApiError): HTTPError 403: vault-seed-account@mineral-minutia-820.iam.gserviceaccount.com does not have storage.objects.get access to the Google Cloud Storage object.
 ```
 
-#### gcloud Detail
-
 The cloud asset api on the other hand does...and we see the error rendered in detail:
 
 ```bash
 $ gcloud  asset analyze-iam-policy \
-   --project fabled-ray-104117 \
+   --project $PROJECT_ID \
    --identity=user:admin@esodemoapp2.com \
-   --full-resource-name="//cloudresourcemanager.googleapis.com/projects/fabled-ray-104117"
+   --full-resource-name="//cloudresourcemanager.googleapis.com/projects/$PROJECT_ID"
 
 ERROR: (gcloud.asset.analyze-iam-policy) User [vault-seed-account@mineral-minutia-820.iam.gserviceaccount.com] does not have permission to access projects instance [fabled-ray-104117:analyzeIamPolicy] (or it may not exist): Request denied by Cloud IAM.
 - '@type': type.googleapis.com/google.rpc.Help
@@ -222,41 +277,42 @@ ERROR: (gcloud.asset.analyze-iam-policy) User [vault-seed-account@mineral-minuti
 
 ### Golang
 
-#### golang Basic
-
-Basic errors types are reurned  [googleapis.Error](https://pkg.go.dev/google.golang.org/api/googleapi#Error) is parsed using casting
+Parsing the errors in golang is _relatively_ easy (meaning, its far easer than in the other languages i've used here).  In golang, the basic http errors you see for GCS and Compute can be directly casted over to [googleapis.Error](https://pkg.go.dev/google.golang.org/api/googleapi#Error):
 
 eg
 ```golang
-if ee, ok := err.(*googleapi.Error); ok { ...
+		storageClient, err := storage.NewClient(ctx)
+		bkt := storageClient.Bucket(*gcsBucket)
+		obj := bkt.Object(*gcsObject)
+		r, err := obj.NewReader(ctx)
+		if err != nil {
+				if ee, ok := err.(*googleapi.Error); ok {
+						fmt.Printf("Error Code %v", ee.Code)        
+						fmt.Printf("Error Message %v", ee.Message) 
+						fmt.Printf("Error Details %v", ee.Details) 
+						fmt.Printf("Error Body %v", ee.Body)                                     
+				}
+		}
 ```
 
-You can see this using the provided sample and run:
+Yields basic information but no details:
 
 ```log
-$ go run main.go \
-    --mode=basic  \
-    --gcsBucket fabled-ray-104117-bucket  \
-    --gcsObject foo.txt
-
-
-2021/03/16 19:56:42 ================ Using REST (GCS) ======================
-2021/03/16 19:56:42 Error Code: 403
-2021/03/16 19:56:42 Error Message:
-2021/03/16 19:56:42 Error Details: []
-2021/03/16 19:56:42 Error Body: <?xml version='1.0' encoding='UTF-8'?><Error><Code>AccessDenied</Code><Message>Access denied.</Message><Details>vault-seed-account@mineral-minutia-820.iam.gserviceaccount.com does not have storage.objects.get access to the Google Cloud Storage object.</Details></Error>
+Error Code: 403
+Error Message:
+Error Details: []
+Error Body: <?xml version='1.0' encoding='UTF-8'?><Error><Code>AccessDenied</Code><Message>Access denied.</Message><Details>vault-seed-account@mineral-minutia-820.iam.gserviceaccount.com does not have storage.objects.get access to the Google Cloud Storage object.</Details></Error>
 2021/03/16 19:56:42 Errors:
+
 ```
 
-#### golang Detail
-
-Details data can be extracted using [status.FromError()](https://pkg.go.dev/google.golang.org/grpc/status#FromError) and unmarshalled appropriately
+To get details, we need ot invoke a different api an capture that data using [status.FromError()](https://pkg.go.dev/google.golang.org/grpc/status#FromError) and unmarshalled appropriately
 
 ```golang
 if s, ok := status.FromError(err); ok {
 		for _, d := range s.Proto().Details {
 			switch d.TypeUrl {
-      case "type.googleapis.com/google.rpc.Help":
+			case "type.googleapis.com/google.rpc.Help":
 				h := &errdetails.Help{}
 				err = ptypes.UnmarshalAny(d, h)
 				if err != nil {
@@ -272,27 +328,305 @@ if s, ok := status.FromError(err); ok {
 You can see this using the provided sample and run:
 
 ```log
-go run main.go \
-   --mode=extended \
-   --gcsBucket=fabled-ray-104117-bucket \
-   --gcsObject=foo.txt \
-   --checkResource="//cloudresourcemanager.googleapis.com/projects/fabled-ray-104117"   \
-   --identity="user:admin@esodemoapp2.com"  \
-   --scope="projects/fabled-ray-104117"
-
-I0316 18:30:46.867344 3353123 main.go:50] ================ QueryTestablePermissions with Resource ======================
-I0316 18:30:46.867557 3353123 main.go:52] Getting AnalyzeIamPolicyRequest
-I0316 18:30:47.239546 3353123 main.go:121] type.googleapis.com/google.rpc.Help
-E0316 18:30:47.239914 3353123 main.go:131]    ErrorHelp Description To check permissions required for this RPC:
-E0316 18:30:47.241062 3353123 main.go:131]    ErrorHelp Description To get a valid organization id:
-E0316 18:30:47.241093 3353123 main.go:131]    ErrorHelp Description To get a valid folder or project id:
+Proposed google.rpc.Help:
+  google.rpc.Help.Description: To check permissions required for this RPC:
+  google.rpc.Help.Url: https://cloud.google.com/asset-inventory/docs/access-control#required_permissions
+  google.rpc.Help.Description: To get a valid organization id:
+  google.rpc.Help.Url: https://cloud.google.com/resource-manager/docs/creating-managing-organization#retrieving_your_organization_id
+  google.rpc.Help.Description: To get a valid folder or project id:
+  google.rpc.Help.Url: https://cloud.google.com/resource-manager/docs/creating-managing-folders#viewing_or_listing_folders_and_projects
 ```
 
-### Python
+So for the details, you have to catch and unmarshall each of the potential types...this is a pain.
+
+In go, i've wrapped these steps into a library of sorts which you can use in your code in a back-compatible way.
+
+### Auto-parsing Errors in golang
+
+To help you along, i've setup an small library that will provide some convenience methods to do this unwrapping
+
+The usage is pretty easy:  
+
+```golang
+import (
+  gcperrors "github.com/salrashid123/gcp_error_handler/golang/errors"
+)
+
+func main() {
+..
+		bkt := storageClient.Bucket(*gcsBucket)
+		obj := bkt.Object(*gcsObject)
+		r, err := obj.NewReader(ctx)
+		if err != nil {
+					defEnv := gcperrors.New(gcperrors.Error{
+					Err: err,
+				})
+			fmt.Printf("Error Details:\n %v\n", defEnv)
+			return
+		}
+}
+```
+
+The `gcperrors.New()` return an unwrapped Error object that has several convenience methods
+
+| Option | Description |
+|:------------|-------------|
+| **`New(err Error) *Error`** | Constructor to pass in the original error | 
+| **`Error() string`** | String value for the converted Error |
+| **`GetGoogleAPIError() (*googleapi.Error, error)`** | Return raw `googleapi.Error`, if applicable  |
+| **`GetStatus() (*status.Status, error)`** | Return raw `google.rpc.Status`, if applicable  |
+| **`GetGoogleRPCHelp() (*errdetails.Help, error)`** | Return `google.rpc..Help` message if type is `google.rpc.Status`  |
+| **`GetGoogleRPCErrorInfo() (*errdetails.ErrorInfo, error)`** | Return `google.rpc.ErrorInfo` message if type is `google.rpc.Status`  |
+| **`GetGoogleRPCQuotaFailure() (*errdetails.QuotaFailure, error)`** | Return `google.rpc.QuotaFailure` message if type is `google.rpc.Status`  |
+| **`GetGoogleRPCDebugInfo() (*errdetails.DebugInfo, error)`** | Return `google.rpc.DebugInfo` message if type is `google.rpc.Status`  |
+| **`GetGoogleRPCRetryInfo() (*errdetails.RetryInfo, error)`** | Return `google.rpc.RetryInfo` message if type is `google.rpc.Status`  |
+| **`GetGoogleRPCPreconditionFailure() (*errdetails.PreconditionFailure, error)`** | Return `google.rpc.PreconditionFailure` message if type is `google.rpc.Status`  |
+| **`GetGoogleRPCBadRequest() (*errdetails.BadRequest, error)`** | Return `google.rpc.BadRequest` message if type is `google.rpc.Status`  |
+
+Note the `Error()` will return a string and is just the plain [standard interface golang errors](https://blog.golang.org/go1.13-errors) need to adhere to.
+
+The `Error` struct this library accepts has some default methods and properties
+
+```golang
+type Error struct {
+	Err              error  // the original error
+	PrettyPrint      bool   // prettyrint the json details
+	IsGoogleAPIError bool   // is this a googleapis.Error
+	IsStatusError    bool   // is this a Status
+}
+```
+
+However, before you jump there are several things that should be on your mind:
+
+1. Is this back compatible?
+2. Can I enable this easily using something like an env-var?
+3. Can this get included in the standard error returned by cloud libraries?
+
+Lets start off with back compatibility.  The answer is yes because the library is designed to return the same error object it was passed to it by default.
+
+The output of any error as returned by something like `fmt.Printf("%v",err)` will be the same with and wouthout the library.
+
+for example, the output of
+
+```golang
+		bkt := storageClient.Bucket(*gcsBucket)
+		obj := bkt.Object(*gcsObject)
+		r, err := obj.NewReader(ctx)
+		fmt.Printf("Default:\n%v\n", err)
+		return
+		}
+}
+```
+
+Will give
+
+```log
+Default:
+rpc error: code = PermissionDenied desc = Request denied by Cloud IAM.
+```
+
+Then when you pass the error into the library, you get the exact same output:
+
+```golang
+		bkt := storageClient.Bucket(*gcsBucket)
+		obj := bkt.Object(*gcsObject)
+		r, err := obj.NewReader(ctx)
+		if err != nil {
+				defEnv := gcperrors.New(gcperrors.Error{
+				Err: err,
+			})
+			fmt.Printf("Default Proposed:\n%v\n", gerr)
+			return
+		}
+```
+
+```log
+Default Proposed:
+rpc error: code = PermissionDenied desc = Request denied by Cloud IAM.
+```
+This will help those customers that maybe using regex/string match on the error text.
+
+...so, how do we enable the detailed parsing?
+
+One way is to use an environment variable.  If you run the same code above but use
+
+`export GOOGLE_ENABLE_ERROR_DETAIL=true`
+
+The output will look like this:
+
+```golang
+	os.Setenv("GOOGLE_ENABLE_ERROR_DETAIL", "true")
+	defEnv := gcperrors.New(gcperrors.Error{
+		Err: err,
+	})
+	fmt.Printf("Default Proposed with env-var:\n %v\n", defEnv)
+```
+
+```log
+Default Proposed with env-var:
+ google.rpc.Error: {"code":7,"message":"Request denied by Cloud IAM.","details":[{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"To check permissions required for this RPC:","url":"https://cloud.google.com/asset-inventory/docs/access-control#required_permissions"},{"description":"To get a valid organization id:","url":"https://cloud.google.com/resource-manager/docs/creating-managing-organization#retrieving_your_organization_id"},{"description":"To get a valid folder or project id:","url":"https://cloud.google.com/resource-manager/docs/creating-managing-folders#viewing_or_listing_folders_and_projects"}]}]}
+```
+
+So there it is...you can now atleast see the details...
+
+We can go further still. What if you not only wanted the string format to display but you'd like that prettyprinted?
+
+Well, then just set a flag:
+
+```golang
+		prettyErrors := gcperrors.New(gcperrors.Error{
+			Err:         err,
+			PrettyPrint: true,
+		})
+		fmt.Printf("Proposed PrettyPrint:\n %v\n", prettyErrors)
+```
+
+Gives:
+
+```json
+Proposed PrettyPrint:
+ google.rpc.Error: PrettyPrint({
+	"code": 7,
+	"message": "Request denied by Cloud IAM.",
+	"details": [
+		{
+			"@type": "type.googleapis.com/google.rpc.Help",
+			"links": [
+				{
+					"description": "To check permissions required for this RPC:",
+					"url": "https://cloud.google.com/asset-inventory/docs/access-control#required_permissions"
+				},
+				{
+					"description": "To get a valid organization id:",
+					"url": "https://cloud.google.com/resource-manager/docs/creating-managing-organization#retrieving_your_organization_id"
+				},
+				{
+					"description": "To get a valid folder or project id:",
+					"url": "https://cloud.google.com/resource-manager/docs/creating-managing-folders#viewing_or_listing_folders_and_projects"
+				}
+			]
+		}
+	]
+})
+```
+
+Thats nice...but I want to get the actual proto messages itself to do something..
+
+For that, you can use the methods described 
 
 
-#### python Basic
+```golang
+	gerr := gcperrors.New(gcperrors.Error{
+		Err: err,
+	})
+	if gerr.IsStatusError {
+		fmt.Printf("Proposed google.rpc.Help:\n")
+		h, err := gerr.GetGoogleRPCHelp()
+		if err != nil {
+			fmt.Printf("%v\n", err)
+		} else {
+
+			for _, v := range h.Links {
+				fmt.Printf("  google.rpc.Help.Description: %s\n", v.Description)
+				fmt.Printf("  google.rpc.Help.Url: %s\n", v.Url)
+			}
+		}
+		fmt.Printf("Proposed google.rpc.BadRequest:\n")
+		b, err := gerr.GetGoogleRPCBadRequest()
+		if err != nil {
+			fmt.Printf("%v\n", err)
+		} else {
+
+			for _, v := range b.FieldViolations {
+				fmt.Printf("  google.rpc.BadRequest.FieldViolations.Field: %s\n", v.Field)
+				fmt.Printf("  google.rpc.BadRequest.FieldViolations.Description: %s\n", v.Description)
+			}
+		}
+	}
+```
+
+Will give
+
+```log
+Proposed google.rpc.Help:
+  google.rpc.Help.Description: To check permissions required for this RPC:
+  google.rpc.Help.Url: https://cloud.google.com/asset-inventory/docs/access-control#required_permissions
+  google.rpc.Help.Description: To get a valid organization id:
+  google.rpc.Help.Url: https://cloud.google.com/resource-manager/docs/creating-managing-organization#retrieving_your_organization_id
+  google.rpc.Help.Description: To get a valid folder or project id:
+  google.rpc.Help.Url: https://cloud.google.com/resource-manager/docs/creating-managing-folders#viewing_or_listing_folders_and_projects
+Proposed google.rpc.BadRequest:
+grpc/status.Status does not include type.googleapis.com/google.rpc.BadRequest
+```
+
+---
+
+#### Default Client Error details
+
+ok, we've talked about how to use this library by hand but it'd be nice if its automatically returned by Google Libraries.
+
+meaning, a proposal maybe that instead of the [Default Error response](https://github.com/googleapis/google-cloud-go/blob/c3de0b796c65bdb1cc54861b15c3126f2b68c667/asset/apiv1/asset_client.go#L440) for any given library, 
+
+```golang
+		err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
+			var err error
+			resp, err = c.client.SearchAllResources(ctx, req, settings.GRPC...)
+			return err
+    }, opts...)
+```
+
+We actually rewrap the error by extracting it first:
+
+```golang
+		err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
+			var err error
+			resp, err = c.client.SearchAllResources(ctx, req, settings.GRPC...)
+			return gcperrors.New(gcperrors.Error{
+							Err: err,
+						})
+    }, opts...)
+```
+
+Since using the wrapped library is a no-op unless you set an env-var, it should generally be transparent.
+
+(you can also chain `gcperrors.New()` together so you can optionally prettyprint or do other things after the default library does its stuff)
+
+---
+
+Now, you can test out all this in go using the sample `main.go` provided here.  Pay seecific attention to the steps in `runTestCases()` method.
+
+To use,
+
+```bash
+export PROJECT_ID=`gcloud config get-value core/project`
+export PROJECT_NUMBER=`gcloud projects describe $PROJECT_ID --format='value(projectNumber)'`
+
+# REST 
+go run main.go  --api=gcs  --gcsBucket fabled-ray-104117-bucket --gcsObject foo.txt
+go run main.go  --api=compute --computeZone us-central1-a  --projectID $PROJECT_ID
+# GRPC
+go run main.go  --api=pubsub --projectID  $PROJECT_ID
+go run main.go  --api=asset  --checkResource="//cloudresourcemanager.googleapis.com/projects/$PROJECT_ID" --identity="user:someuser@domain.com" --scope="projects/$PROJECT_ID"
+```
+
+---
+---
+
+### Language Bindings
+
+The rest of this repo contains baseline samples that *just parses the error details*...not thing more.  I do not know enough of the following to know how to wrap its idiomatic errors together
+
+>> *If you know how to properly wrap errors in any of these languages, please feel free to file a PR*
+
+The hard part is catching the gRPC metadata trailers and casting them so i think most of the work is done.  That is, catch the metdata, look for a `key="google.rpc.help-bin"`, unmarshall the proto
+
+Code snippets below uses the projectID and user I have in a test domain...if you're just interested in seeing the error mode, just bootstrap the same clients using your credential against my test project..you'll see the errors since you dont' have access.
+#### Python
+
+
 Basic top-level errors can be caught by directly using [google.cloud.exceptions.GoogleCloudError](https://gcloud.readthedocs.io/en/latest/_modules/google/cloud/exceptions.html)
+
+The snippet below will list out the REST errors you'd see with something like GCS:
 
 ```python
     bucket = storage_client.bucket(bucket_name)
@@ -310,7 +644,7 @@ Basic top-level errors can be caught by directly using [google.cloud.exceptions.
         print(err)
 ```
 
-```bash
+```log
 $ python main.py --mode=basic      --gcsBucket fabled-ray-104117-bucket      --gcsObject foo.txt
 
 HTTPStatus.FORBIDDEN
@@ -321,11 +655,10 @@ Details:
   reason forbidden
 ```
 
-#### python Detail
+For detail gRPC Status, thats done by casting using `GoogleCloudError` methods then extract from the [grpc.Status](https://grpc.github.io/grpc/python/grpc_status.html) fields from the trailing metadata
 
-Detail errors should be casted using `GoogleCloudError` methods then extract from the trailing metadata
-
-- [grpc.Status](https://grpc.github.io/grpc/python/grpc_status.html)
+For example
+-
 ```python
 except GoogleCloudError as err:    
     print(err)
@@ -344,6 +677,7 @@ except GoogleCloudError as err:
             print('     Help Description: ', l.description)
 ```
 
+You can run the sample using python3
 
 ```bash
 python main.py --mode=extended \
@@ -354,7 +688,7 @@ python main.py --mode=extended \
 
 gives output
 
-```
+```log
 403 Request denied by Cloud IAM.
 HTTPStatus.FORBIDDEN
 Request denied by Cloud IAM.
@@ -368,11 +702,10 @@ StatusCode.PERMISSION_DENIED
      Help Description:  To get a valid folder or project id:
 ```
 
-### Java
+#### Java
 
-#### java Basic
-
-Catch basic exceptions using service-specific handlers.  For example for GCS, use [com.google.cloud.storage.StorageException](https://googleapis.dev/java/google-cloud-storage/latest/com/google/cloud/storage/StorageException.html)
+Same with java:
+For basic/REST exception with something like GCS, use [com.google.cloud.storage.StorageException](https://googleapis.dev/java/google-cloud-storage/latest/com/google/cloud/storage/StorageException.html)
 
 ```java
         try {
@@ -394,7 +727,7 @@ Catch basic exceptions using service-specific handlers.  For example for GCS, us
         }
 ```
 
-```bash
+```log
 mvn clean install exec:java -q \
    -Dexec.args="-mode basic -gcsBucket fabled-ray-104117-bucket -gcsObject foo.txt"
 
@@ -406,15 +739,8 @@ StorageException:
   Reason: forbidden
 ```
 
-#### java Detail
+For `error.Detail` parsing, we need to populate [io.grpc.Status](https://grpc.github.io/grpc-java/javadoc/io/grpc/Status.html) from the grpc.Metadata Trailers:
 
-Detail messages must be marshalled out of generic `Exception` from within that the various Metadata types.  The type Keys within the metadata shows the types
-
-* `grpc-status-details-bin`
-
-See [io.grpc.Status](https://grpc.github.io/grpc-java/javadoc/io/grpc/Status.html)
-
-For example
 
 ```java
         try {
@@ -475,11 +801,9 @@ Exception:
    Parsing: grpc-status-details-bin
 ```
 
-### NodeJS
+#### NodeJS
 
-#### nodejs Basic
-
-Catch Basic errors as node exceptions without marshalling.  The `err` is actually a googleapi Error
+For REST errors, you can directly extract the error information without unmarshalling.  The `err` is actually a `googleapi Error`
 
 ```javascript
   const {Storage} = require('@google-cloud/storage');
@@ -506,9 +830,6 @@ Error Message: vault-seed-account@mineral-minutia-820.iam.gserviceaccount.com do
 Error Errors:
 ```
 
-#### nodejs Detail
-
->>> Note..while the following works...this is certainly not righ
 
 Detail Messages are embedded inside the metadata fields of the RPC.  For example,
 
@@ -540,7 +861,7 @@ const result =  client.analyzeIamPolicy(request, options).then(function(value) {
 }
 ```
 
-gives the error details but I'm not sure how to unmarshall in node
+gives the error details but I'm not sure how to unmarshal in node properly
 
 
 ```bash
@@ -548,11 +869,8 @@ $ node main.js --mode=extended \
   --checkResource=//cloudresourcemanager.googleapis.com/projects/fabled-ray-104117 \
   --identity=user:admin@esodemoapp2.com \
   --scope=projects/fabled-ray-104117
-```
 
-gives output
 
-```
 Code: 7
 Details: Request denied by Cloud IAM.
 Message: 7 PERMISSION_DENIED: Request denied by Cloud IAM.
@@ -565,11 +883,10 @@ https://cloud.google.com/resource-manager/docs/creating-managing-folders#viewing
 ```
 
 
-### dotnet
+#### dotnet
 
-#### dotnet Basic
-
-Catching basic errors in GCS is pretty straightforward as [Google.GoogleApiException](https://googleapis.dev/dotnet/Google.Apis.Core/latest/api/Google.GoogleApiException.html)
+Same wit dotnet:
+  Catching basic errors in GCS is pretty straightforward using [Google.GoogleApiException](https://googleapis.dev/dotnet/Google.Apis.Core/latest/api/Google.GoogleApiException.html)
 
 ```csharp
             var storage = StorageClient.Create();
@@ -602,7 +919,7 @@ HelpLink:
 Error:
 ```
 
-#### dotnet Detail
+For the Status fields, you still have to unmarshal from the trailers
 
 ```bash
 $ dotnet run --mode=extended \
@@ -611,7 +928,7 @@ $ dotnet run --mode=extended \
   --scope=projects/fabled-ray-104117
 ```
 
->> TODO: i'm not sure how to do this...the following works but is pretty ineffecient
+>> TODO: i'm not sure how to do this...the following works but is pretty inefficient
 
 ```csharp
             try
@@ -693,7 +1010,7 @@ $ dotnet run --mode=extended \
         }
 ```
 
-```text
+```log
 Status.StatusCode: PermissionDenied
 Status.Detail: Request denied by Cloud IAM.
     Description: To check permissions required for this RPC:
@@ -703,3 +1020,16 @@ Status.Detail: Request denied by Cloud IAM.
     Description: To get a valid folder or project id:
     URL: https://cloud.google.com/resource-manager/docs/creating-managing-folders#viewing_or_listing_folders_and_projects
 ```
+
+
+---
+
+`=========================================================`
+
+---
+
+### Summary
+
+In summary, ther'es a log of really useful debugging information some GCP apis return...but its really, really difficult to even see and is hidden under unnecessary layers of abstraction almost all developers (me included)...simply don't want to carry the cognitive load for).
+
+Hopefully, these errors will get returned by default and a simple `print` command on the error will show the details...the first step is to just show the errors easily..the next steps is to allow easier conditional actions based on the appropriate errors google apis send back.

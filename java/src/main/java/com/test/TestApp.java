@@ -1,36 +1,29 @@
 package com.test;
 
-import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
-import java.util.Collection;
-import java.util.Iterator;
-import java.io.FileInputStream;
 
 import com.google.rpc.Help;
+import com.google.rpc.ErrorInfo;
+import com.google.rpc.BadRequest;
 
 import com.google.cloud.storage.StorageException;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
-import org.apache.commons.cli.Option.Builder;
+
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.ParseException;
-import java.util.Arrays;
+
 import io.grpc.Metadata;
-import io.grpc.Metadata.Key;
+
 import io.grpc.Status;
-import com.google.protobuf.ByteString;
-import com.google.protobuf.ExtensionRegistry;
+
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.Message;
-import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets.Details;
-import com.google.api.gax.rpc.ApiException;
-import com.google.api.gax.rpc.InvalidArgumentException;
 import com.google.cloud.asset.v1.AssetServiceClient;
 import com.google.cloud.asset.v1.AnalyzeIamPolicyRequest;
 import com.google.cloud.asset.v1.AnalyzeIamPolicyResponse;
@@ -156,24 +149,36 @@ public class TestApp {
             System.out.println("  Status.getCode:  " + ss.getCode().value());
             System.out.println("  Status.getDescription:  " + ss.getDescription());
             Metadata m = Status.trailersFromThrowable(ex);
-            //grpc-status-details-bin grpc-server-stats-bin
+            // grpc-status-details-bin grpc-server-stats-bin
             for (String k : m.keys()) {
                 System.out.println("   Parsing: " + k);
                 if (k.equals("google.rpc.help-bin")) {
                     byte[] byt_help = m.get(Metadata.Key.of("google.rpc.help-bin", Metadata.BINARY_BYTE_MARSHALLER));
                     Help h = null;
                     try {
-                      h = Help.parseFrom(byt_help);
+                        h = Help.parseFrom(byt_help);
                     } catch (InvalidProtocolBufferException ioex) {
                         System.out.println("err" + ioex);
                         return;
                     }
-                    for (Help.Link l : h.getLinksList()){
+                    for (Help.Link l : h.getLinksList()) {
                         System.out.println("     Exception Link getDescription:  " + l.getDescription());
-                        System.out.println("     Exception Link getUrl:  " + l.getUrl());                        
-                    }                    
+                        System.out.println("     Exception Link getUrl:  " + l.getUrl());
+                    }
                 }
+                if (k.equals("google.rpc.badrequest-bin")) {
+                    byte[] byt_help = m.get(Metadata.Key.of("google.rpc.badrequest-bin", Metadata.BINARY_BYTE_MARSHALLER));
+                    BadRequest h = null;
+                    try {
+                        h = BadRequest.parseFrom(byt_help);
+                    } catch (InvalidProtocolBufferException ioex) {
+                        System.out.println("err" + ioex);
+                        return;
+                    }
+                    System.out.println("BadRequest:" + h);
+                }                
             }
+            
         }
     }
 

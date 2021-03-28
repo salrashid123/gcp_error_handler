@@ -10,8 +10,7 @@
             "request": "launch",
             "mode": "debug",
             "program": "${workspaceFolder}",
-            "args": ["--mode=extended", "--checkResource=//cloudresourcemanager.googleapis.com/projects/fabled-ray-104117","--identity=user4@esodemoapp2.com","--scope=projects/fabled-ray-104117"]
-
+            "args": ["--api=asset", "--checkResource=//cloudresourcemanager.googleapis.com/projects/fabled-ray-104117","--identity=user4@esodemoapp2.com","--scope=projects/fabled-ray-104117"]
         }
     ]
 }

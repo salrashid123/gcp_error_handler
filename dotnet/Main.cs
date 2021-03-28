@@ -113,21 +113,22 @@ namespace dotnet
         {
             if (any.TryUnpack(out Google.Rpc.BadRequest br))
             {
-                Console.WriteLine($"  BadRequest {br}");                
+                Console.WriteLine($"  BadRequest {br}");
             }
             else if (any.TryUnpack(out Google.Rpc.PreconditionFailure pf))
             {
                 Console.WriteLine($"  PreconditionFailure {pf}");
-            } else if (any.TryUnpack(out Google.Rpc.Help h))
-            {                
+            }
+            else if (any.TryUnpack(out Google.Rpc.Help h))
+            {
                 foreach (Types.Link l in h.Links)
                 {
                     Console.WriteLine("    Description: " + l.Description);
-                    Console.WriteLine("    URL: " + l.Url);                    
+                    Console.WriteLine("    URL: " + l.Url);
                 }
             }
         }
-    
+
         private void Basic(string bucketName, string objectName)
         {
             var storage = StorageClient.Create();
