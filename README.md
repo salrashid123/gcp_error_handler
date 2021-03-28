@@ -199,7 +199,7 @@ What do you mean "convert protos"?...Well, unfortunately, the error Details in g
 
 At time of writing, error Detail messages must be marshalled  out of `gRPC Metadata Trailers`.  Golang does this for you automatically but in the other languages, you need to extract the following fields to get at the embedded data.
 
-For example, 
+For example,
 
 * `grpc-status-help-bin`
 * `grpc-status-badrequest-bin`
@@ -221,6 +221,7 @@ We will start off with `gcloud`, then have bindings in golang, java, python, nod
 
 * [gcloud](#gcloud)
 * [golang](#golang)
+    - [Auto parsing Library](#auto-parsing-library)
     - [Default Client Error details](#default-client-error-details)
 * [Language Bindings](#language-bindings)
     - [python](#python)
@@ -288,8 +289,8 @@ eg
 		if err != nil {
 				if ee, ok := err.(*googleapi.Error); ok {
 						fmt.Printf("Error Code %v", ee.Code)        
-						fmt.Printf("Error Message %v", ee.Message) 
-						fmt.Printf("Error Details %v", ee.Details) 
+						fmt.Printf("Error Message %v", ee.Message)
+						fmt.Printf("Error Details %v", ee.Details)
 						fmt.Printf("Error Body %v", ee.Body)                                     
 				}
 		}
@@ -341,7 +342,7 @@ So for the details, you have to catch and unmarshall each of the potential types
 
 In go, i've wrapped these steps into a library of sorts which you can use in your code in a back-compatible way.
 
-### Auto-parsing Errors in golang
+### Auto parsing library
 
 To help you along, i've setup an small library that will provide some convenience methods to do this unwrapping
 
@@ -358,9 +359,9 @@ func main() {
 		obj := bkt.Object(*gcsObject)
 		r, err := obj.NewReader(ctx)
 		if err != nil {
-					defEnv := gcperrors.New(gcperrors.Error{
-					Err: err,
-				})
+			defEnv := gcperrors.New(gcperrors.Error{
+				Err: err,
+			})
 			fmt.Printf("Error Details:\n %v\n", defEnv)
 			return
 		}
@@ -371,7 +372,7 @@ The `gcperrors.New()` return an unwrapped Error object that has several convenie
 
 | Option | Description |
 |:------------|-------------|
-| **`New(err Error) *Error`** | Constructor to pass in the original error | 
+| **`New(err Error) *Error`** | Constructor to pass in the original error |
 | **`Error() string`** | String value for the converted Error |
 | **`GetGoogleAPIError() (*googleapi.Error, error)`** | Return raw `googleapi.Error`, if applicable  |
 | **`GetStatus() (*status.Status, error)`** | Return raw `google.rpc.Status`, if applicable  |
@@ -512,7 +513,7 @@ Proposed PrettyPrint:
 
 Thats nice...but I want to get the actual proto messages itself to do something..
 
-For that, you can use the methods described 
+For that, you can use the methods described
 
 
 ```golang
@@ -565,7 +566,7 @@ grpc/status.Status does not include type.googleapis.com/google.rpc.BadRequest
 
 ok, we've talked about how to use this library by hand but it'd be nice if its automatically returned by Google Libraries.
 
-meaning, a proposal maybe that instead of the [Default Error response](https://github.com/googleapis/google-cloud-go/blob/c3de0b796c65bdb1cc54861b15c3126f2b68c667/asset/apiv1/asset_client.go#L440) for any given library, 
+meaning, a proposal maybe that instead of the [Default Error response](https://github.com/googleapis/google-cloud-go/blob/c3de0b796c65bdb1cc54861b15c3126f2b68c667/asset/apiv1/asset_client.go#L440) for any given library,
 
 ```golang
 		err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
@@ -601,7 +602,7 @@ To use,
 export PROJECT_ID=`gcloud config get-value core/project`
 export PROJECT_NUMBER=`gcloud projects describe $PROJECT_ID --format='value(projectNumber)'`
 
-# REST 
+# REST
 go run main.go  --api=gcs  --gcsBucket fabled-ray-104117-bucket --gcsObject foo.txt
 go run main.go  --api=compute --computeZone us-central1-a  --projectID $PROJECT_ID
 # GRPC
