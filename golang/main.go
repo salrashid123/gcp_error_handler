@@ -143,7 +143,6 @@ func main() {
 		}); err != nil {
 			runTestCases(ctx, computeService, err)
 			return
-
 		}
 	} else if *api == "gcs" {
 		log.Println("================ Using (GCS) ======================")

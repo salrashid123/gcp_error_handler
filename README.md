@@ -1034,3 +1034,33 @@ Status.Detail: Request denied by Cloud IAM.
 In summary, ther'es a log of really useful debugging information some GCP apis return...but its really, really difficult to even see and is hidden under unnecessary layers of abstraction almost all developers (me included)...simply don't want to carry the cognitive load for).
 
 Hopefully, these errors will get returned by default and a simple `print` command on the error will show the details...the first step is to just show the errors easily..the next steps is to allow easier conditional actions based on the appropriate errors google apis send back.
+
+
+```log
+2021/03/28 22:13:13 ================ Using  (AssetManager) ======================
+2021/03/28 22:13:14 http2: Framer 0xc0002668c0: wrote SETTINGS len=0
+2021/03/28 22:13:14 http2: Framer 0xc0002668c0: read SETTINGS len=18, settings: MAX_CONCURRENT_STREAMS=100, INITIAL_WINDOW_SIZE=1048576, MAX_HEADER_LIST_SIZE=16384
+2021/03/28 22:13:14 http2: Framer 0xc0002668c0: read WINDOW_UPDATE len=4 (conn) incr=983041
+2021/03/28 22:13:14 http2: Framer 0xc0002668c0: read SETTINGS flags=ACK len=0
+2021/03/28 22:13:14 http2: Framer 0xc0002668c0: wrote SETTINGS flags=ACK len=0
+2021/03/28 22:13:14 http2: Framer 0xc0002668c0: wrote HEADERS flags=END_HEADERS stream=1 len=867
+2021/03/28 22:13:14 http2: Framer 0xc0002668c0: wrote DATA flags=END_STREAM stream=1 len=138 data="\x00\x00\x00\x00\x85\n\x82\x01\n\x1cprojects/mineral-minutia-820\x12D\nB//cloudresourcemanager.googleapis.com/projects/mineral-minutia-820\x1a\x1c\n\x1auser:admin@esodemoapp2.com"
+2021/03/28 22:13:14 http2: Framer 0xc0002668c0: read HEADERS flags=END_HEADERS stream=1 len=228
+2021/03/28 22:13:14 http2: decoded hpack field header field ":status" = "200"
+2021/03/28 22:13:14 http2: decoded hpack field header field "content-type" = "application/grpc"
+2021/03/28 22:13:14 http2: decoded hpack field header field "grpc-accept-encoding" = "identity,deflate,gzip"
+2021/03/28 22:13:14 http2: decoded hpack field header field "accept-encoding" = "identity,gzip"
+2021/03/28 22:13:14 http2: decoded hpack field header field "content-length" = "0"
+2021/03/28 22:13:14 http2: decoded hpack field header field "date" = "Mon, 29 Mar 2021 02:13:14 GMT"
+2021/03/28 22:13:14 http2: decoded hpack field header field "alt-svc" = "h3-29=\":443\"; ma=2592000,h3-T051=\":443\"; ma=2592000,h3-Q050=\":443\"; ma=2592000,h3-Q046=\":443\"; ma=2592000,h3-Q043=\":443\"; ma=2592000,quic=\":443\"; ma=2592000; v=\"46,43\""
+2021/03/28 22:13:14 http2: Framer 0xc0002668c0: read HEADERS flags=END_STREAM|END_HEADERS stream=1 len=1130
+2021/03/28 22:13:14 http2: decoded hpack field header field "grpc-status" = "7"
+2021/03/28 22:13:14 http2: decoded hpack field header field "grpc-message" = "Request denied by Cloud IAM."
+2021/03/28 22:13:14 http2: decoded hpack field header field "google.rpc.help-bin" = "CoABCitUbyBjaGVjayBwZXJtaXNzaW9ucyByZXF1aXJlZCBmb3IgdGhpcyBSUEM6ElFodHRwczovL2Nsb3VkLmdvb2dsZS5jb20vYXNzZXQtaW52ZW50b3J5L2RvY3MvYWNjZXNzLWNvbnRyb2wjcmVxdWlyZWRfcGVybWlzc2lvbnMKkAEKH1RvIGdldCBhIHZhbGlkIG9yZ2FuaXphdGlvbiBpZDoSbWh0dHBzOi8vY2xvdWQuZ29vZ2xlLmNvbS9yZXNvdXJjZS1tYW5hZ2VyL2RvY3MvY3JlYXRpbmctbWFuYWdpbmctb3JnYW5pemF0aW9uI3JldHJpZXZpbmdfeW91cl9vcmdhbml6YXRpb25faWQKmAEKJFRvIGdldCBhIHZhbGlkIGZvbGRlciBvciBwcm9qZWN0IGlkOhJwaHR0cHM6Ly9jbG91ZC5nb29nbGUuY29tL3Jlc291cmNlLW1hbmFnZXIvZG9jcy9jcmVhdGluZy1tYW5hZ2luZy1mb2xkZXJzI3ZpZXdpbmdfb3JfbGlzdGluZ19mb2xkZXJzX2FuZF9wcm9qZWN0cw"
+2021/03/28 22:13:14 http2: decoded hpack field header field "grpc-status-details-bin" = "CAcSHFJlcXVlc3QgZGVuaWVkIGJ5IENsb3VkIElBTS4a2QMKI3R5cGUuZ29vZ2xlYXBpcy5jb20vZ29vZ2xlLnJwYy5IZWxwErEDCoABCitUbyBjaGVjayBwZXJtaXNzaW9ucyByZXF1aXJlZCBmb3IgdGhpcyBSUEM6ElFodHRwczovL2Nsb3VkLmdvb2dsZS5jb20vYXNzZXQtaW52ZW50b3J5L2RvY3MvYWNjZXNzLWNvbnRyb2wjcmVxdWlyZWRfcGVybWlzc2lvbnMKkAEKH1RvIGdldCBhIHZhbGlkIG9yZ2FuaXphdGlvbiBpZDoSbWh0dHBzOi8vY2xvdWQuZ29vZ2xlLmNvbS9yZXNvdXJjZS1tYW5hZ2VyL2RvY3MvY3JlYXRpbmctbWFuYWdpbmctb3JnYW5pemF0aW9uI3JldHJpZXZpbmdfeW91cl9vcmdhbml6YXRpb25faWQKmAEKJFRvIGdldCBhIHZhbGlkIGZvbGRlciBvciBwcm9qZWN0IGlkOhJwaHR0cHM6Ly9jbG91ZC5nb29nbGUuY29tL3Jlc291cmNlLW1hbmFnZXIvZG9jcy9jcmVhdGluZy1tYW5hZ2luZy1mb2xkZXJzI3ZpZXdpbmdfb3JfbGlzdGluZ19mb2xkZXJzX2FuZF9wcm9qZWN0cw"
+2021/03/28 22:13:14 http2: decoded hpack field header field "grpc-server-stats-bin" = "AACdoCkEAAAAAA"
+2021/03/28 22:13:14 http2: Framer 0xc0002668c0: read PING len=8 ping="\x00\x00\x00\x00\x00\x00\x00\x00"
+2021/03/28 22:13:14 http2: Framer 0xc0002668c0: wrote PING flags=ACK len=8 ping="\x00\x00\x00\x00\x00\x00\x00\x00"
+Default:
+rpc error: code = PermissionDenied desc = Request denied by Cloud IAM.
+```

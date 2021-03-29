@@ -8,8 +8,11 @@ from google.rpc import status_pb2, error_details_pb2, code_pb2
 from google.cloud.exceptions import GoogleCloudError
 from google.api_core.exceptions import Forbidden, InternalServerError, ServiceUnavailable
 import google.api_core.exceptions
-
+import googleapiclient.errors
 import argparse
+from pprint import pprint
+from googleapiclient import discovery
+from oauth2client.client import GoogleCredentials
 
 import sys, getopt
 
@@ -21,7 +24,7 @@ def basic(bucket_name,object_name):
     try:
         blob = bucket.get_blob(object_name)
         print(blob)
-    except GoogleCloudError as err:
+    except google.cloud.exceptions.GoogleCloudError as err:
         print(err.code)
         print([err]) 
         print("Details: ")
@@ -30,6 +33,22 @@ def basic(bucket_name,object_name):
                 print(k, v)
     except Exception as err:
         print(err)
+
+def basic_compute(project,zone):
+    try:
+        credentials = GoogleCredentials.get_application_default()
+        service = discovery.build('compute', 'v1', credentials=credentials)
+        request = service.instances().list(project=project, zone=zone)
+        while request is not None:
+            response = request.execute()
+            for instance in response['items']:
+                pprint(instance)
+            request = service.instances().list_next(previous_request=request, previous_response=response)
+    except googleapiclient.errors.HttpError as err:
+        print(err.content.decode('utf-8'))
+    except Exception as err:
+        print(err)
+
 
 def extended(scope,checkResource,identity):
 

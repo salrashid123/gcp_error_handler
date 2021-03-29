@@ -258,7 +258,7 @@ func New(err Error) *Error {
 
 // The following is not used at the moment.  It is intended to use client-side interpretation of the error using
 // the regex match of the current error string coupled with additional data.  It will not replace the existing error details
-// but provide additional information, help links to help the user
+// but provide additional information, help links to the user
 
 //  The idea is to fill up the errorList with a number (few) ReinterpretedError messages that can be set back to the user as a debug message
 
