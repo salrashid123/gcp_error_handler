@@ -16,6 +16,8 @@ from oauth2client.client import GoogleCredentials
 
 import sys, getopt
 
+from gcp_error_handler.gcp_errors import GCPError
+
 storage_client = storage.Client()
 
 def basic(bucket_name,object_name):
@@ -25,10 +27,21 @@ def basic(bucket_name,object_name):
         blob = bucket.get_blob(object_name)
         print(blob)
     except google.cloud.exceptions.GoogleCloudError as err:
+
+        # Using Default Error
         print(err.code)
         print([err]) 
         print("Details: ")
         for e in err.errors:
+            for k, v in e.items():
+                print(k, v)
+
+        # Using AutoParser
+        ee = GCPError(err)
+        print(ee.code)
+        print([ee]) 
+        print("Details: ")
+        for e in ee.errors:
             for k, v in e.items():
                 print(k, v)
     except Exception as err:
@@ -45,7 +58,13 @@ def basic_compute(project,zone):
                 pprint(instance)
             request = service.instances().list_next(previous_request=request, previous_response=response)
     except googleapiclient.errors.HttpError as err:
+
+        # Using Default Error
         print(err.content.decode('utf-8'))
+
+        # Using AutoParser
+        ee = GCPError(err)
+        print(ee.content.decode('utf-8'))
     except Exception as err:
         print(err)
 
@@ -70,17 +89,13 @@ def extended(scope,checkResource,identity):
         )
     
         print(response)
-        
 
-    # https://googleapis.dev/python/google-api-core/latest/exceptions.html
-    # https://grpc.github.io/grpc/python/grpc.html
-    # https://github.com/grpc/grpc/blob/master/examples/python/errors/client.py#L33
-    except GoogleCloudError as err:    
+    except google.cloud.exceptions.GoogleCloudError as err:
+        # Using Default Error 
         print(err) 
         print(err.code)
         print(err.message)
         print(err.grpc_status_code)
-        print("........................")
         for e in err.errors:
           meta = e.trailing_metadata()
           for m in meta:
@@ -90,6 +105,25 @@ def extended(scope,checkResource,identity):
               for l in info.links:
                 print('     Help Url: ', l.url)
                 print('     Help Description: ', l.description)
+
+        # Using AutoParser
+        ee = GCPError(err)
+        print(ee) 
+        print(ee.code)
+        print(ee.message)
+        print(ee.grpc_status_code)
+        info = ee.get_google_rpc_help
+        if info != None:
+            for l in info.links:
+                print('     Help Url: ', l.url)
+                print('     Help Description: ', l.description)
+
+        info = ee.get_google_rpc_badrequest
+        if info!=None:
+            for l in info.field_violations:
+                print('     BadRequest Field: ', l.field)
+                print('     BadRequest Description: ', l.description)
+
 
 def usage():
     print ('\nUsage: main.py  '
@@ -134,6 +168,8 @@ if __name__ == '__main__':
         usage()
         sys.exit(1)
 
+    # basic_compute('yourroject','us-central1-a')
+    # sys.exit(1)
     if mode =="basic":
         if gcsBucket == "" or gcsObject == "":
           print("Both --gcsObject= and --gcsBucket= must be specified with --mode=rest")
