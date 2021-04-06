@@ -707,8 +707,10 @@ StatusCode.PERMISSION_DENIED
 
 #### Java
 
-Same with java:
+>> NOTE, for convenience, this repo includes a library under `java/src/main/java/com/github/salrashid123/gcp_error_handler/ErrorHandler.java` which wraps and surfaces the detail errors.  For more details, see `java/README.md`
+
 For basic/REST exception with something like GCS, use [com.google.cloud.storage.StorageException](https://googleapis.dev/java/google-cloud-storage/latest/com/google/cloud/storage/StorageException.html)
+
 
 ```java
         try {
