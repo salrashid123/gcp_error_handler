@@ -2,24 +2,40 @@ from google.api_core.exceptions import GoogleAPIError, GoogleAPICallError
 from google.rpc import status_pb2, error_details_pb2, code_pb2
 import google.api_core.exceptions
 import googleapiclient.errors
+from google.protobuf.json_format import MessageToDict,MessageToJson
+
+import os, json
 
 class GCPError(Exception):
 
     _err = None
     _is_google_cloud_error = True
+    _pretty_print = False
 
-    def __init__(self, err):
+    def __init__(self, err, prettyprint=False):
         super(Exception, self).__init__(err)
         self._err=err
-       
-        if isinstance(err, google.cloud.exceptions.GoogleCloudError):
-            print("Interpreting as google.cloud.exceptions.GoogleCloudError")    
-        if isinstance(err, googleapiclient.errors.HttpError):
-            print("Interpreting googleapiclient.errors.HttpError")            
+        self._pretty_print=prettyprint
+  
+        # TODO, account for https://github.com/googleapis/google-api-python-client/blob/master/googleapiclient/errors.py
+        if isinstance(err, googleapiclient.errors.HttpError):  # or isinstance(err, googleapiclient.errors.UnexpectedBodyError) or ...:
+            #print("Interpreting googleapiclient.errors.HttpError")            
             self._is_google_cloud_error = False
 
-    def __str__(self):     
-        return str(self._err)
+    def __str__(self): 
+      if 'GOOGLE_ENABLE_ERROR_DETAIL' in os.environ or self._pretty_print:
+        if (os.environ.get('GOOGLE_ENABLE_ERROR_DETAIL') == "true" or self._pretty_print) and self._is_google_cloud_error and self.grpc_status_code != None:
+          resp = {'GoogleCloudError': str(self._err)}
+          for e in self._err.errors:
+            info = self.get_google_rpc_help
+            if info!=None:
+              resp['google.rpc.help-bin'] = MessageToDict(info)
+            info = self.get_google_rpc_badrequest
+            if info!=None:
+              resp['google.rpc.badrequest-bin'] = MessageToDict(info)
+          return (json.dumps(resp, indent=4, sort_keys=False))
+
+      return str(self._err)
 
     @property
     def is_google_cloud_error(self):
@@ -43,8 +59,9 @@ class GCPError(Exception):
         return self._err.error_details
 
     @property
-    def status_code(self):
-        return self._err.resp.status
+    def resp(self):
+        if self._is_google_cloud_error == False:
+          return self._err.resp
 
     #  For google.cloud.exceptions
     @property

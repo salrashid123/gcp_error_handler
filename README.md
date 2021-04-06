@@ -629,6 +629,8 @@ Basic top-level errors can be caught by directly using [google.cloud.exceptions.
 
 The snippet below will list out the REST errors you'd see with something like GCS:
 
+>> NOTE, for convenience, this repo includes a library under `python/gcp_error_handler/gcp_errors.py` which wraps and surfaces the detail errors.  For more details, see `python/README.md`
+
 ```python
     bucket = storage_client.bucket(bucket_name)
     try:
@@ -646,7 +648,7 @@ The snippet below will list out the REST errors you'd see with something like GC
 ```
 
 ```log
-$ python main.py --mode=basic      --gcsBucket fabled-ray-104117-bucket      --gcsObject foo.txt
+$ python main.py --api=gcs      --gcsBucket fabled-ray-104117-bucket      --gcsObject foo.txt
 
 HTTPStatus.FORBIDDEN
 [Forbidden('GET https://storage.googleapis.com/storage/v1/b/fabled-ray-104117-bucket/o/foo.txt?projection=noAcl&prettyPrint=false: vault-seed-account@mineral-minutia-820.iam.gserviceaccount.com does not have storage.objects.get access to the Google Cloud Storage object.')]
@@ -681,7 +683,7 @@ except GoogleCloudError as err:
 You can run the sample using python3
 
 ```bash
-python main.py --mode=extended \
+python main.py --api=asset \
    --checkResource="//cloudresourcemanager.googleapis.com/projects/fabled-ray-104117"   \
    --identity=user:admin@esodemoapp2.com  \
    --scope=projects/fabled-ray-104117
