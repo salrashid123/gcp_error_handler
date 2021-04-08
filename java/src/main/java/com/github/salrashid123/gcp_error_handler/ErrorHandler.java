@@ -10,7 +10,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import io.grpc.Metadata;
 import io.grpc.Status;
-
+import java.io.StringReader;
+import com.google.gson.JsonParser;
 public class ErrorHandler extends Exception {
 
     private static final long serialVersionUID = -2133257318957488431L;
@@ -19,8 +20,7 @@ public class ErrorHandler extends Exception {
     private Throwable cause;
     private com.google.cloud.http.BaseHttpServiceException apiError;
     private com.google.api.gax.rpc.ApiException cloudError; // com.google.api.gax.rpc.PermissionDeniedException
-    // private com.google.api.client.googleapis.json.GoogleJsonResponseException
-    // googleAPIError;
+
     private com.google.api.client.http.HttpResponseException googleAPIError;
     private boolean prettyPrint = false;
     private boolean isGoogleCloudError = true;
@@ -60,42 +60,6 @@ public class ErrorHandler extends Exception {
             isGoogleCloudError = true;
             this.cloudError = (com.google.api.gax.rpc.ApiException) cause;
 
-            // Status ss = Status.fromThrowable(cause);
-            Metadata m = Status.trailersFromThrowable(cause);
-            // grpc-status-details-bin grpc-server-stats-bin
-            for (String k : m.keys()) {
-                if (k.equals("google.rpc.help-bin")) {
-                    byte[] byt_help = m.get(Metadata.Key.of("google.rpc.help-bin", Metadata.BINARY_BYTE_MARSHALLER));
-
-                    try {
-                        this.googleRPCHelp = Help.parseFrom(byt_help);
-                    } catch (InvalidProtocolBufferException ioex) {
-                        System.out.println("err" + ioex);
-                        return;
-                    }
-                }
-                if (k.equals("google.rpc.badrequest-bin")) {
-                    byte[] byt_help = m
-                            .get(Metadata.Key.of("google.rpc.badrequest-bin", Metadata.BINARY_BYTE_MARSHALLER));
-                    BadRequest h = null;
-                    try {
-                        this.googleRPCBadRequest = BadRequest.parseFrom(byt_help);
-                    } catch (InvalidProtocolBufferException ioex) {
-                        System.out.println("err" + ioex);
-                        return;
-                    }
-                }
-            }
-        } else if (cause.getClass().getSuperclass() == com.google.api.client.http.HttpResponseException.class) {
-            isGoogleCloudError = false;
-            this.googleAPIError = (com.google.api.client.http.HttpResponseException) cause;
-        } else {
-            // TODO: throw exception somehow
-            System.out.println("ERROR: unable to parse exception type");
-            return;
-        }
-
-        if (isGoogleCloudError) {
             Metadata m = Status.trailersFromThrowable(cause);
             // grpc-status-details-bin grpc-server-stats-bin
             for (String k : m.keys()) {
@@ -147,8 +111,13 @@ public class ErrorHandler extends Exception {
                     }
                 }
             }
+        } else if (cause.getClass().getSuperclass() == com.google.api.client.http.HttpResponseException.class) {
+            isGoogleCloudError = false;
+            this.googleAPIError = (com.google.api.client.http.HttpResponseException) cause;
         } else {
-
+            // TODO: throw exception somehow
+            System.out.println("ERROR: unable to parse exception type");
+            return;
         }
     }
 
@@ -247,28 +216,7 @@ public class ErrorHandler extends Exception {
     @Override
     public String getMessage() {
         if (this.isGoogleCloudError && this.prettyPrint) {
-            Gson gson = new GsonBuilder().setPrettyPrinting().create();
-
-            JsonObject jo = new com.google.gson.JsonObject();
-            jo.addProperty("getMessage", this.cloudError.getMessage());
-
-            // // TODO: make formatted json....
-            
-            jo.addProperty("getStatusCode.getCode.name", this.cloudError.getStatusCode().getCode().name());
-            if (this.getGoogleRPCHelp() != null) {
-                jo.addProperty("com.google.rpc.Help", this.getGoogleRPCHelp().toString().replace("\n", ""));
-            }
-            if (this.getGoogleRPCErrorInfo() != null) {
-                jo.addProperty("com.google.rpc.ErrorInfo", this.getGoogleRPCErrorInfo().toString().replace("\n", ""));
-            }
-            if (this.getGoogleRPCPreconditionFailure() != null) {
-                jo.addProperty("com.google.rpc.PreconditionFailure",
-                        this.getGoogleRPCPreconditionFailure().toString().replace("\n", ""));
-            }
-            if (this.getGoogleRPCBadRequest() != null) {
-                jo.addProperty("com.google.rpc.BadRequest", this.getGoogleRPCBadRequest().toString().replace("\n", ""));
-            }
-            return gson.toJson(jo);
+            return this.toString();
         }
         return this.cause.getMessage();
     }
@@ -285,17 +233,16 @@ public class ErrorHandler extends Exception {
             
             jo.addProperty("getStatusCode.getCode.name", this.cloudError.getStatusCode().getCode().name());
             if (this.getGoogleRPCHelp() != null) {
-                jo.addProperty("com.google.rpc.Help", this.getGoogleRPCHelp().toString().replace("\n", ""));
+                jo.add("com.google.rpc.Help",  JsonParser.parseReader(new StringReader(gson.toJson(this.getGoogleRPCHelp()))));
             }
             if (this.getGoogleRPCErrorInfo() != null) {
-                jo.addProperty("com.google.rpc.ErrorInfo", this.getGoogleRPCErrorInfo().toString().replace("\n", ""));
+                jo.add("com.google.rpc.ErrorInfo",  JsonParser.parseReader(new StringReader(gson.toJson(this.getGoogleRPCErrorInfo()))));
             }
             if (this.getGoogleRPCPreconditionFailure() != null) {
-                jo.addProperty("com.google.rpc.PreconditionFailure",
-                        this.getGoogleRPCPreconditionFailure().toString().replace("\n", ""));
+                jo.add("com.google.rpc.PreconditionFailure",JsonParser.parseReader(new StringReader(gson.toJson(this.getGoogleRPCPreconditionFailure()))));
             }
             if (this.getGoogleRPCBadRequest() != null) {
-                jo.addProperty("com.google.rpc.BadRequest", this.getGoogleRPCBadRequest().toString().replace("\n", ""));
+                jo.add("com.google.rpc.BadRequest",JsonParser.parseReader(new StringReader(gson.toJson(this.getGoogleRPCBadRequest()))));
             }
             return gson.toJson(jo);
         }        

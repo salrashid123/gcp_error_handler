@@ -1,0 +1,9 @@
+README.md
+setup.py
+gcp_error_handler/__init__.py
+gcp_error_handler/gcp_errors.py
+gcp_error_handler.egg-info/PKG-INFO
+gcp_error_handler.egg-info/SOURCES.txt
+gcp_error_handler.egg-info/dependency_links.txt
+gcp_error_handler.egg-info/requires.txt
+gcp_error_handler.egg-info/top_level.txt

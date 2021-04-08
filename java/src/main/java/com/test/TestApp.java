@@ -1,43 +1,9 @@
 package com.test;
 
-import com.google.cloud.storage.BlobId;
-import com.google.cloud.storage.Blob;
-import com.google.cloud.storage.Storage;
-import com.google.cloud.storage.StorageOptions;
-import com.google.rpc.Help;
-
-import com.google.rpc.ErrorInfo;
-import com.google.rpc.BadRequest;
-
-import com.google.cloud.storage.StorageException;
-
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.Options;
-
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.ParseException;
-
-import io.grpc.Metadata;
-
-import io.grpc.Status;
-
-import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.cloud.asset.v1.AssetServiceClient;
-import com.google.cloud.asset.v1.AnalyzeIamPolicyRequest;
-import com.google.cloud.asset.v1.AnalyzeIamPolicyResponse;
-import com.google.cloud.asset.v1.IamPolicyAnalysisQuery;
-import com.google.cloud.asset.v1.IamPolicyAnalysisQuery.IdentitySelector;
-import com.google.cloud.asset.v1.IamPolicyAnalysisQuery.ResourceSelector;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Set;
-import java.util.List;
 
-//import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
-import com.google.auth.oauth2.GoogleCredentials;
-import com.google.auth.http.HttpCredentialsAdapter;
+import com.github.salrashid123.gcp_error_handler.ErrorHandler;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.json.JsonFactory;
@@ -45,22 +11,34 @@ import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.compute.Compute;
 import com.google.api.services.compute.model.Instance;
 import com.google.api.services.compute.model.InstanceList;
-
+import com.google.auth.http.HttpCredentialsAdapter;
+//import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
+import com.google.auth.oauth2.GoogleCredentials;
+import com.google.cloud.asset.v1.AnalyzeIamPolicyRequest;
+import com.google.cloud.asset.v1.AnalyzeIamPolicyResponse;
+import com.google.cloud.asset.v1.AssetServiceClient;
+import com.google.cloud.asset.v1.IamPolicyAnalysisQuery;
+import com.google.cloud.asset.v1.IamPolicyAnalysisQuery.IdentitySelector;
+import com.google.cloud.asset.v1.IamPolicyAnalysisQuery.ResourceSelector;
 import com.google.cloud.pubsub.v1.TopicAdminClient;
-import com.google.cloud.pubsub.v1.TopicAdminSettings;
-import com.google.pubsub.v1.Topic;
-import com.google.pubsub.v1.TopicName;
-import com.google.cloud.pubsub.v1.TopicAdminClient.ListTopicSubscriptionsPagedResponse;
 import com.google.cloud.pubsub.v1.TopicAdminClient.ListTopicsPagedResponse;
+import com.google.cloud.pubsub.v1.TopicAdminSettings;
+import com.google.cloud.storage.Blob;
+import com.google.cloud.storage.BlobId;
+import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.StorageException;
+import com.google.cloud.storage.StorageOptions;
 import com.google.pubsub.v1.ListTopicsRequest;
 import com.google.pubsub.v1.ProjectName;
-import com.google.pubsub.v1.ProjectTopicName;
+import com.google.pubsub.v1.Topic;
+import com.google.rpc.Help;
 
-import java.io.IOException;
-import java.security.GeneralSecurityException;
-import java.util.Arrays;
-
-import com.github.salrashid123.gcp_error_handler.ErrorHandler;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
 
 public class TestApp {
 
@@ -157,7 +135,7 @@ public class TestApp {
             System.out.println("===================");
             ErrorHandler e = new ErrorHandler(ex);
             System.out.println(" getStatusCode: " + e.getStatusCode().getCode());
-            System.out.println(" Message: " + e.getMessage());   
+            System.out.println(" Message: " + e.getMessage());
 
         } catch (Exception ex) {
             System.out.println("PubSub Excetion " + ex);
@@ -203,7 +181,7 @@ public class TestApp {
             System.out.println(e);
             System.out.println("getMessage()  " + e.getMessage());
         } catch (Exception ex) {
-            System.out.println(">>>>>>>>>>>>>>>> "+ ex);
+            System.out.println(">>>>>>>>>>>>>>>> " + ex);
         }
     }
 
@@ -239,7 +217,6 @@ public class TestApp {
             System.out.println("  Reason: " + e.getReason());
             System.out.println("  Cause: " + e.getCause());
 
-
         } catch (Exception ex) {
             System.out.println("Exception:  " + ex);
         }
@@ -264,9 +241,9 @@ public class TestApp {
             System.out.println(" getStatusCode: " + ex.getStatusCode().getCode());
             System.out.println(" Message: " + ex.getMessage());
             System.out.println(" isRetryable: " + ex.isRetryable());
-            
+
             System.out.println("===================");
-            ErrorHandler e = new ErrorHandler(ex,false);
+            ErrorHandler e = new ErrorHandler(ex, false);
             System.out.println(" getStatusCode: " + e.getStatusCode().getCode());
             System.out.println(" Message: " + e.getMessage());
             System.out.println(" isRetryable: " + e.isRetryable());
@@ -277,9 +254,9 @@ public class TestApp {
                     System.out.println("     Exception Link getUrl:  " + l.getUrl());
                 }
             }
-        
+
         } catch (IOException ex) {
-            System.out.println(">>>>>>>>>>>>>>>> "+ ex);
+            System.out.println(">>>>>>>>>>>>>>>> " + ex);
         }
     }
 
