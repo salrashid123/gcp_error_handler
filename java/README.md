@@ -425,5 +425,23 @@ $ tree
 ```bash
 cd repository/
 
-mvn install:install-file -DgroupId=com.github.salrashid123.gcp_error_handler -DartifactId=gcp_error_handler -Dversion=1.0-SNAPSHOT -Dfile=../lib/target/gcp_error_handler-1.0-SNAPSHOT.jar -Dpackaging=jar -DgeneratePom=true -DlocalRepositoryPath=.  -DcreateChecksum=true
+mvn install:install-file -DgroupId=com.github.salrashid123.gcp_error_handler -DartifactId=gcp_error_handler -Dversion=1.0-SNAPSHOT -Dfile=../lib/target/gcp_error_handler-1.0-SNAPSHOT.jar -DgeneratePom=true -DlocalRepositoryPath=.  -DcreateChecksum=true -DpomFile=../lib/pom.xml
+
+cd com/github/salrashid123/gcp_error_handler/gcp_error_handler/
+
+mv maven-metadata-local.xml maven-metadata.xml
+rm maven-metadata-local.xml.sha1
+rm maven-metadata-local.xml.md5
+md5sum maven-metadata.xml > maven-metadata.xml.md5
+sha1sum maven-metadata.xml > maven-metadata.xml.sha1
+
+cd com/github/salrashid123/gcp_error_handler/gcp_error_handler/1.0-SNAPSHOT/
+mv maven-metadata-local.xml maven-metadata.xml
+rm maven-metadata-local.xml.sha1
+rm maven-metadata-local.xml.md5
+md5sum maven-metadata.xml > maven-metadata.xml.md5
+sha1sum maven-metadata.xml > maven-metadata.xml.sha1
+
+mvn org.apache.maven.plugins:maven-dependency-plugin:2.1:get -DrepoUrl=https://raw.githubusercontent.com/salrashid123/gcp_error_handler/main/java/repository/ -Dartifact=com.github.salrashid123.gcp_error_handler:gcp_error_handler:1.0-SNAPSHOT
+
 ```
