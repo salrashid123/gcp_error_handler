@@ -14,7 +14,7 @@ import java.io.StringReader;
 import com.google.gson.JsonParser;
 public class ErrorHandler extends Exception {
 
-    private static final long serialVersionUID = -2133257318957488431L;
+    private static final long serialVersionUID = -2133257318957488411L;
     private static final String GOOGLE_ENABLE_ERROR_DETAIL = "GOOGLE_ENABLE_ERROR_DETAIL";
 
     private Throwable cause;
@@ -51,8 +51,7 @@ public class ErrorHandler extends Exception {
             this.prettyPrint = prettyPrint;
         }
 
-        // System.out.println("Class --> " +
-        // cause.getClass().getSuperclass().getName());
+        // System.out.println("Class --> " +cause.getClass().getSuperclass().getName()); //
         if (cause.getClass().getSuperclass() == com.google.cloud.http.BaseHttpServiceException.class) {
             isGoogleCloudError = false;
             this.apiError = (com.google.cloud.http.BaseHttpServiceException) cause;

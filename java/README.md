@@ -35,7 +35,13 @@ In the following examples, the various libraries throw different error types, so
 ### Usage
 
 ```bash
-mvn clean install
+# first build the library from scratch 
+$ cd java/lib
+$ mvn clean package
+
+# then run the client that references it
+$ cd client/
+$ mvn clean install
 
 export GOOGLE_APPLICATION_CREDENTIALS=/path/to/svc_account.json
 ```
@@ -384,3 +390,40 @@ GET https://compute.googleapis.com/compute/v1/projects/fabled-ray-104117/zones/u
 }
 ```
 
+#### Building
+
+If you want to build the library and optionally the maven repo file
+
+```bash
+$ cd java/lib
+$ mvn clean package
+
+$ tree
+.
+├── pom.xml
+├── src
+│   └── main
+│       └── java
+│           └── com
+│               └── github
+│                   └── salrashid123
+│                       └── gcp_error_handler
+│                           └── ErrorHandler.java
+└── target
+    ├── classes
+    │   └── com
+    │       └── github
+    │           └── salrashid123
+    │               └── gcp_error_handler
+    │                   └── ErrorHandler.class
+    ├── gcp_error_handler-1.0-SNAPSHOT.jar
+    └── maven-archiver
+        └── pom.properties
+
+```
+
+```bash
+cd repository/
+
+mvn install:install-file -DgroupId=com.github.salrashid123.gcp_error_handler -DartifactId=gcp_error_handler -Dversion=1.0-SNAPSHOT -Dfile=../lib/target/gcp_error_handler-1.0-SNAPSHOT.jar -Dpackaging=jar -DgeneratePom=true -DlocalRepositoryPath=.  -DcreateChecksum=true
+```

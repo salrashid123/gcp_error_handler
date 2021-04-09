@@ -218,7 +218,7 @@ public class TestApp {
             System.out.println("  Cause: " + e.getCause());
 
         } catch (Exception ex) {
-            System.out.println("Exception:  " + ex);
+            System.out.println("Exception:  " + ex.getCause());
         }
     }
 

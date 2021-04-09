@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+  <groupId>com.github.salrashid123.gcp_error_handler</groupId>
+  <artifactId>gcp_error_handler</artifactId>
+  <versioning>
+    <versions>
+      <version>1.0-SNAPSHOT</version>
+    </versions>
+    <lastUpdated>20210409015057</lastUpdated>
+  </versioning>
+</metadata>
