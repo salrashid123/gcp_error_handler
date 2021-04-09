@@ -16,12 +16,12 @@
   </properties>
 
 
-  <!-- 
+  
     <repositories>
         <repository>
-            <id>private-repo</id>
-            <name>Private Repository</name>
-            <url>https://raw.githubusercontent.com/salrashid123/gcp_error_handler/java/repository/</url>
+            <id>git-repo</id>
+            <name>my git repository</name>
+            <url>https://raw.githubusercontent.com/salrashid123/gcp_error_handler/main/java/repository/</url>
             <releases>
                 <enabled>true</enabled>
                 <updatePolicy>never</updatePolicy>
@@ -31,7 +31,7 @@
             </snapshots>
         </repository>
     </repositories>
- -->
+
 
   <dependencies>
 
@@ -74,7 +74,7 @@
     <version>1.0-SNAPSHOT</version>
 </dependency> 
 
-
+<!-- 
 <dependency>
     <groupId>com.github.salrashid123.gcp_error_handler</groupId>
     <artifactId>gcp_error_handler</artifactId>
@@ -82,7 +82,7 @@
     <scope>system</scope>
     <systemPath>${project.basedir}/../lib/target/gcp_error_handler-1.0-SNAPSHOT.jar</systemPath>
 </dependency> 
-
+ -->
 
 
   </dependencies>
