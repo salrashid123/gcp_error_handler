@@ -50,7 +50,7 @@ class GCPError(Exception):
 
     @property
     def is_google_cloud_error(self):
-        return _is_google_cloud_error
+        return self._is_google_cloud_error
 
     #  For googleapiclient.errors
 

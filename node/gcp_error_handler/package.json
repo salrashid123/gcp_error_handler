@@ -1,0 +1,9 @@
+{
+  "name": "gcp_error_handler",
+  "version": "0.0.0",
+  "dependencies": {
+    "@google-cloud/common": "^3.6.0",
+    "google-proto-files": "^2.4.0",
+    "googleapis": "^71.0.0"
+  }
+}

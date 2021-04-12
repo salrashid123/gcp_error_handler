@@ -19,7 +19,7 @@ curl -s -H "Authorization: Bearer `gcloud auth print-access-token`" https://pubs
 }
 ```
 
-> great...who is the user and what permissions do i need?
+**great...who is the user and what permissions do i need?**
 
 ---
 
@@ -43,7 +43,7 @@ $  curl -H "Authorization: Bearer `gcloud auth print-access-token`"  https://sto
 }
 ```
 
-> whats not found? the bucket..how do i resolve it?
+**whats not found? the bucket..how do i resolve it?**
 
 ---
 
@@ -66,7 +66,7 @@ $ curl -H "Authorization: Bearer `gcloud auth print-access-token`"  https://stor
 }
 ```
 
-> Thats really good!...now i see who the user is and the permission!
+**Thats really good!...now i see who the user is and the permission!**
 
 ---
 
@@ -104,7 +104,7 @@ D) if you try to check access permissions using [Cloud Asset API](https://cloud.
 ```
 
 
->  Thats awesome!...look at all the embedded *details*, links in the error response!
+**Thats awesome!...look at all the embedded *details*, links in the error response!**
 
 We're not done yet...the error details is a list of different types...for example, if you intentionally provide a malformed request (eg use `/v1/fooprojects/fabled-ray..` instead of `/v1/projects/fabled-ray`), you will see a slightly different response
 
@@ -145,6 +145,33 @@ We're not done yet...the error details is a list of different types...for exampl
   }
 }
 ```
+
+>> NOTE: This repository is *NOT* supported by Google.  Use these code samples as guides to wrap error handlers or to decode them, if necessary
+
+
+This article shows how to unmarshall these errors by hand as well as my best attempt at wrapping a library that does the heavy lifting for you.  I am not by any stretch stating this these libraries are what you should use (since i do not know most of these languages in that detail).  If you see any improvements, please do file a git issue or preferably a pull request.
+
+The library is basically a wrapper around the unmarshalling code and seeks to be back-compatible by a language's idiomatic handling of exceptions.
+For more details, see the implementations sections
+
+The underlying libraries uses core grpc clients for proto unmarshalling which _may_ cause dependency conflicts...so, more reason to use this with caution!
+
+---
+
+`Table of Contents`
+
+* [Google API Error Design](#google-api-error-esign)
+* [Services that return Error Details](#services-that-return-error-details)
+* [Implementations](#implementations)
+    - [gcloud](#gcloud)
+    - [golang](#golang)
+      - [Auto parsing Library](#auto-parsing-library)
+      - [Default Client Error details](#default-client-error-details)
+    * [Language Bindings](#language-bindings)
+      - [python](#python)
+      - [java](#java)
+      - [nodejs](#nodejs)
+      - [dotnet](#dotnet)
 
 ---
 
@@ -217,21 +244,90 @@ We will start off with `gcloud`, then have bindings in golang, java, python, nod
 
 ---
 
-`Table of Contents:`
+### Services that return Error Details
 
-* [gcloud](#gcloud)
-* [golang](#golang)
-    - [Auto parsing Library](#auto-parsing-library)
-    - [Default Client Error details](#default-client-error-details)
-* [Language Bindings](#language-bindings)
-    - [python](#python)
-    - [java](#java)
-    - [nodejs](#nodejs)
-    - [dotnet](#dotnet)
+Not all GCP APIs return these error details.  While more and more APIs will return detailed/descriptive errors, the following is a current (4/11/21) supported:
+
+- [Asset Inventory](https://cloud.google.com/asset-inventory/docs/reference/rest)
 
 ---
 
-### gcloud
+
+
+### Implementations
+
+>> **IMPORTANT** DO NOT USE in production...this is just a sample
+
+
+The implementation here sees to provide a backward-compatible no-op library that you can 'just use' to handle and extract the detailed errors.
+
+
+For example, if you currently catch a google error using a try catch block
+
+```python
+try:
+  ...
+except google.cloud.exceptions.GoogleCloudError as err:
+  print(err)
+except googleapiclient.errors.HttpError as err:
+  print(err)    
+```
+
+then passing utilizing the client library should be backwards compatible in the output and methods
+
+```python
+from gcp_error_handler.gcp_errors import GCPError
+
+try:
+  ...
+except google.cloud.exceptions.GoogleCloudError as err:
+  ee = GCPError(err)
+  print(ee)
+except googleapiclient.errors.HttpError as err:
+  ee = GCPError(err)
+  print(ee)    
+```
+
+The difference is if you enable an environment variable `export GOOGLE_ENABLE_ERROR_DETAIL=true`, then the output of the print() statements will automatically unmarshall any embedded error details and print to stdout.
+
+Additionally, the `GCPError()` wrapper provides convenience methods to extract and process the error details as iterable objects:
+
+```python
+from gcp_error_handler.gcp_errors import GCPError
+
+try:
+  ...
+except google.cloud.exceptions.GoogleCloudError as err:
+  ee = GCPError(err)
+  print(ee)
+except googleapiclient.errors.HttpError as err:
+  ee = GCPError(err,prettyprint=False)
+  print(ee)  # export GOOGLE_ENABLE_ERROR_DETAIL=true
+  print(ee.code)
+  print(ee.message)
+  print(ee.response)
+  print(ee.grpc_status_code)
+  print("Details: ")
+  for e in ee.errors:
+      if (ee.grpc_status_code != None):
+          info = ee.get_google_rpc_help
+          if info != None:
+            for l in info.links:
+              print('     Help Url: ', l.url)
+              print('     Help Description: ', l.description)
+
+          info = ee.get_google_rpc_badrequest
+            if info != None:
+              for l in info.field_violations:
+                print('     BadRequest Field: ', l.field)
+                print('     BadRequest Description: ', l.description)
+
+```
+
+>> **You can find detail examples for each implementation within the README.md in each folder library `python/README.md`, `java/README.md`, `node/README.md`, `dotnet/README.md`**
+
+
+#### gcloud
 
 `gcloud` cli by default does not use the environment variables for Application default credentials so we have to manually instruct it to use the service account
 
@@ -276,7 +372,7 @@ ERROR: (gcloud.asset.analyze-iam-policy) User [vault-seed-account@mineral-minuti
     url: https://cloud.google.com/resource-manager/docs/creating-managing-folders#viewing_or_listing_folders_and_projects
 ```
 
-### Golang
+#### Golang
 
 Parsing the errors in golang is _relatively_ easy (meaning, its far easer than in the other languages i've used here).  In golang, the basic http errors you see for GCS and Compute can be directly casted over to [googleapis.Error](https://pkg.go.dev/google.golang.org/api/googleapi#Error):
 
@@ -342,7 +438,7 @@ So for the details, you have to catch and unmarshall each of the potential types
 
 In go, i've wrapped these steps into a library of sorts which you can use in your code in a back-compatible way.
 
-### Auto parsing library
+##### Auto parsing library
 
 To help you along, i've setup an small library that will provide some convenience methods to do this unwrapping
 
@@ -562,7 +658,7 @@ grpc/status.Status does not include type.googleapis.com/google.rpc.BadRequest
 
 ---
 
-#### Default Client Error details
+##### Default Client Error details
 
 ok, we've talked about how to use this library by hand but it'd be nice if its automatically returned by Google Libraries.
 
@@ -890,7 +986,7 @@ https://cloud.google.com/resource-manager/docs/creating-managing-folders#viewing
 
 #### dotnet
 
-Same wit dotnet:
+Same with dotnet:
   Catching basic errors in GCS is pretty straightforward using [Google.GoogleApiException](https://googleapis.dev/dotnet/Google.Apis.Core/latest/api/Google.GoogleApiException.html)
 
 ```csharp

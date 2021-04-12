@@ -10,7 +10,13 @@ That is, you should see the same output if you use the wrapper or not but with t
 * Constructor:
 
 ```java
+    public ErrorHandler(Throwable cause, boolean prettyPrint) {
+        this.handler(cause, prettyPrint);
+    }
 
+    public ErrorHandler(Throwable cause) {
+        this.handler(cause, false);
+    }
 ```
 
 
@@ -72,7 +78,10 @@ The asset inventory api below will return error detail information.  For example
             System.out.println(" isRetryable: " + ex.isRetryable());
             
             System.out.println("===================");
+
+
             ErrorHandler e = new ErrorHandler(ex,false);
+            
             System.out.println(" getStatusCode: " + e.getStatusCode().getCode());
             System.out.println(" Message: " + e.getMessage());
             System.out.println(" isRetryable: " + e.isRetryable());
@@ -90,6 +99,8 @@ The asset inventory api below will return error detail information.  For example
     }
 ```
 ```bash
+$ mvn install:install-file -Dfile=../lib/target/gcp_error_handler-1.0-SNAPSHOT.jar
+
 mvn clean install exec:java -q  \
     -Dexec.args="-api asset -checkResource //cloudresourcemanager.googleapis.com/projects/fabled-ray-104117 -identity user:admin@esodemoapp2.com -scope projectsvv/fabled-ray-104117"
 

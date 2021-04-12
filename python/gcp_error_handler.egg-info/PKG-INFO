@@ -474,6 +474,13 @@ Description: ## GCP Error Details custom handler (python)
             except Exception as err:
                 print(err)
         ```
+        
+        
+        ### Building gcp-error-handler package
+        
+        ```bash
+        python3 setup.py sdist
+        ```
 Platform: UNKNOWN
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent

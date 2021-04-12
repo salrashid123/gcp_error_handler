@@ -12,7 +12,10 @@
                 "<node_internals>/**"
             ],
             "program": "${workspaceFolder}/main.js",
-            "args": ["--mode=extended", "--checkResource=//cloudresourcemanager.googleapis.com/projects/fabled-ray-104117","--identity=user4@esodemoapp2.com","--scope=projects/fabled-ray-104117"]
+            // "args": ["--api=asset", "--checkResource=//cloudresourcemanager.googleapis.com/projects/fabled-ray-104117","--identity=user4@esodemoapp2.com","--scope=projects/fabled-ray-104117"]
+            "args": ["--api=gcs", "--gcsBucket=fabled-ray-104117-bucket", "--gcsObject=foo.txt"]
+            // "args": ["--api=compute","--projectID=fabled-ray-104117","--zone=us-central1-a"]
+            // "args": ["--api=pubsub","--projectID=fabled-ray-104117"]
         }
     ]
 }

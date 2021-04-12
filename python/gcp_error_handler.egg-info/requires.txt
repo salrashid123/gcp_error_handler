@@ -1,5 +1,5 @@
+google-api-python-client
+googleapis-common-protos
 grpcio
 grpcio-status
-googleapis-common-protos
 oauth2client
-google-api-python-client

@@ -16,7 +16,7 @@
   </properties>
 
 
-  
+<!--   
     <repositories>
         <repository>
             <id>private-repo</id>
@@ -31,7 +31,7 @@
             </snapshots>
         </repository>
     </repositories>
-
+ -->
 
   <dependencies>
 
@@ -67,14 +67,17 @@
     <version>v1-rev235-1.25.0</version>
 </dependency>
 
-
+<!-- 
 <dependency>
     <groupId>com.github.salrashid123.gcp_error_handler</groupId>
     <artifactId>gcp_error_handler</artifactId>
     <version>1.0-SNAPSHOT</version> 
 </dependency> 
+ -->
 
-<!-- 
+
+  <!-- TODO: i know this isn't the way to compile and reference dependencies... -->
+
 <dependency>
     <groupId>com.github.salrashid123.gcp_error_handler</groupId>
     <artifactId>gcp_error_handler</artifactId>
@@ -82,9 +85,6 @@
     <scope>system</scope>
     <systemPath>${project.basedir}/../lib/target/gcp_error_handler-1.0-SNAPSHOT.jar</systemPath>
 </dependency>  
--->
-
-
 
   </dependencies>
 
@@ -92,17 +92,17 @@
     <plugins>
      <plugin>
       <artifactId>maven-compiler-plugin</artifactId>
-      <version>2.0.2</version>
+      <version>3.8.1</version>
       <configuration>
-        <source>1.7</source>
-        <target>1.7</target>
+        <source>1.8</source>
+        <target>1.8</target>
       </configuration>
      </plugin>
 
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
-        <version>1.2.1</version>
+        <version>3.0.0</version>
         <executions>
           <execution>
             <goals>
@@ -112,7 +112,8 @@
         </executions>
         <configuration>
           <mainClass>com.test.TestApp</mainClass>
-          <classpathScope>compile</classpathScope>
+            <!-- TODO: i know using test isn't the way to include dependencies... -->
+          <classpathScope>test</classpathScope>      
         </configuration>
       </plugin>
     </plugins>

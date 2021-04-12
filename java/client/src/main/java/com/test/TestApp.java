@@ -12,7 +12,6 @@ import com.google.api.services.compute.Compute;
 import com.google.api.services.compute.model.Instance;
 import com.google.api.services.compute.model.InstanceList;
 import com.google.auth.http.HttpCredentialsAdapter;
-//import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.asset.v1.AnalyzeIamPolicyRequest;
 import com.google.cloud.asset.v1.AnalyzeIamPolicyResponse;
@@ -138,8 +137,9 @@ public class TestApp {
             System.out.println(" Message: " + e.getMessage());
 
         } catch (Exception ex) {
-            System.out.println("PubSub Excetion " + ex);
+            System.out.println("PubSub Exception " + ex);
         }
+        System.exit(0);
     }
 
     public void Compute(String projectID, String zone) {
@@ -181,7 +181,7 @@ public class TestApp {
             System.out.println(e);
             System.out.println("getMessage()  " + e.getMessage());
         } catch (Exception ex) {
-            System.out.println(">>>>>>>>>>>>>>>> " + ex);
+            System.out.println("Exception " + ex);
         }
     }
 
@@ -247,17 +247,20 @@ public class TestApp {
             System.out.println(" getStatusCode: " + e.getStatusCode().getCode());
             System.out.println(" Message: " + e.getMessage());
             System.out.println(" isRetryable: " + e.isRetryable());
-            if (e.getGoogleRPCHelp() != null) {
-                com.google.rpc.Help h = e.getGoogleRPCHelp();
-                for (Help.Link l : h.getLinksList()) {
-                    System.out.println("     Exception Link getDescription:  " + l.getDescription());
-                    System.out.println("     Exception Link getUrl:  " + l.getUrl());
+            if (e.isGoogleCloudError()) {
+                if (e.getGoogleRPCHelp() != null) {
+                    com.google.rpc.Help h = e.getGoogleRPCHelp();
+                    for (Help.Link l : h.getLinksList()) {
+                        System.out.println("     Exception Link getDescription:  " + l.getDescription());
+                        System.out.println("     Exception Link getUrl:  " + l.getUrl());
+                    }
                 }
             }
 
         } catch (IOException ex) {
-            System.out.println(">>>>>>>>>>>>>>>> " + ex);
+            System.out.println("Exception " + ex);
         }
+        System.exit(0);
     }
 
 }

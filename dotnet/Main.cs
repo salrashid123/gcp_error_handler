@@ -4,46 +4,62 @@ using Microsoft.Extensions.CommandLineUtils;
 
 using Google.Apis.Requests;
 using Google.Apis.Util;
-
+using Google.Apis.Auth.OAuth2;
 using Google.Api.Gax.ResourceNames;
 using Google.Cloud.Asset.V1;
 using Google.Protobuf.WellKnownTypes;
-
+using System.Collections.Generic;
+using Google.Cloud.PubSub.V1;
 using static Google.Rpc.Help;
-
+using Google.Apis.Compute.v1;
+using Google.Apis.Services;
+using Newtonsoft.Json;
 using Grpc.Core;
-
+using Data = Google.Apis.Compute.v1.Data;
 using System.IO;
+using System.Threading.Tasks;
+
+using Github.Salrashid123.GCPErrorHandler;
 namespace dotnet
 {
     class Program
     {
-        private const string StatusDetailsTrailerName = "grpc-status-details-bin";
+
         static void Main(string[] args)
         {
 
             var cmd = new CommandLineApplication();
-            var argMode = cmd.Option("--mode <value>", "mode", CommandOptionType.SingleValue);
+            var argApi = cmd.Option("--api <value>", "api", CommandOptionType.SingleValue);
             var argGcsBucket = cmd.Option("--gcsBucket <value>", "gcsBucket", CommandOptionType.SingleValue);
             var argGcsObject = cmd.Option("--gcsObject <value>", "gcsObject", CommandOptionType.SingleValue);
             var argScope = cmd.Option("--scope <value>", "scope", CommandOptionType.SingleValue);
             var argCheckResource = cmd.Option("--checkResource <value>", "checkResource", CommandOptionType.SingleValue);
             var argIdentity = cmd.Option("--identity <value>", "identity", CommandOptionType.SingleValue);
+            var argProjectID = cmd.Option("--projectID <value>", "projectID", CommandOptionType.SingleValue);
+            var argZone = cmd.Option("--zone <value>", "zone", CommandOptionType.SingleValue);
 
             cmd.HelpOption("-? | -h | --help");
             cmd.Execute(args);
 
             Program p = new Program();
-            if (argMode.Value() == "basic")
+            if (argApi.Value() == "gcs")
             {
-                p.Basic(argGcsBucket.Value(), argGcsObject.Value());
+                p.GCS(argGcsBucket.Value(), argGcsObject.Value());
             }
-            if (argMode.Value() == "extended")
+            if (argApi.Value() == "asset")
             {
-                p.Extended(argScope.Value(), argCheckResource.Value(), argIdentity.Value());
+                p.Asset(argScope.Value(), argCheckResource.Value(), argIdentity.Value());
+            }
+            if (argApi.Value() == "compute")
+            {
+                p.Compute(argProjectID.Value(), argZone.Value());
+            }
+            if (argApi.Value() == "pubsub")
+            {
+                p.PubSub(argProjectID.Value());
             }
         }
-        private void Extended(string scope, string checkResource, string identity)
+        private void Asset(string scope, string checkResource, string identity)
         {
             var client = AssetServiceClient.Create();
             try
@@ -79,57 +95,27 @@ namespace dotnet
                 Console.WriteLine("Status.StatusCode: " + e.Status.StatusCode);
                 Console.WriteLine("Status.Detail: " + e.Status.Detail);
 
-                PrintRpcExceptionDetails(e);
-            }
-        }
-        // https://github.com/chwarr/grpc-dotnet-google-rpc-status/blob/master/client/Program.cs
-        private static void PrintRpcExceptionDetails(RpcException ex)
-        {
-            byte[]? statusBytes = null;
+                Console.WriteLine("=======================================");
+                GCPErrorHandler g = new GCPErrorHandler(e);
+                Console.WriteLine("Message: " + g.Message);
+                Console.WriteLine("Status: " + g.Status);
 
-            foreach (Metadata.Entry me in ex.Trailers)
-            {
+                Console.WriteLine("Status.StatusCode: " + g.Status.StatusCode);
+                Console.WriteLine("Status.Detail: " + g.Status.Detail);
 
-                if (me.Key == StatusDetailsTrailerName)
+                if (g.isGoogleCloudError)
                 {
-                    statusBytes = me.ValueBytes;
-                }
-            }
 
-            if (statusBytes is null)
-            {
-                return;
-            }
-
-            var status = Google.Rpc.Status.Parser.ParseFrom(statusBytes);
-
-            foreach (Any any in status.Details)
-            {
-                PrintRPCDetails(any);
-            }
-        }
-
-        private static void PrintRPCDetails(Any any)
-        {
-            if (any.TryUnpack(out Google.Rpc.BadRequest br))
-            {
-                Console.WriteLine($"  BadRequest {br}");
-            }
-            else if (any.TryUnpack(out Google.Rpc.PreconditionFailure pf))
-            {
-                Console.WriteLine($"  PreconditionFailure {pf}");
-            }
-            else if (any.TryUnpack(out Google.Rpc.Help h))
-            {
-                foreach (Types.Link l in h.Links)
-                {
-                    Console.WriteLine("    Description: " + l.Description);
-                    Console.WriteLine("    URL: " + l.Url);
+                    Google.Rpc.Help h = g.GetGoogleRpcHelp();
+                    foreach (Types.Link l in h.Links)
+                    {
+                        Console.WriteLine("    Description: " + l.Description);
+                        Console.WriteLine("    URL: " + l.Url);
+                    }
                 }
             }
         }
-
-        private void Basic(string bucketName, string objectName)
+        private void GCS(string bucketName, string objectName)
         {
             var storage = StorageClient.Create();
             try
@@ -144,9 +130,100 @@ namespace dotnet
                 Console.WriteLine("HttpStatusCode: " + e.HttpStatusCode);
                 Console.WriteLine("HelpLink: " + e.HelpLink);
                 Console.WriteLine("Error: " + e.Error);
+
+                Console.WriteLine("=======================================");
+
+                GCPErrorHandler g = new GCPErrorHandler(e);
+
+                Console.WriteLine("Message: " + g.Message);
+                Console.WriteLine("ServiceName: " + g.ServiceName);
+                Console.WriteLine("Source: " + g.Source);
+                Console.WriteLine("HttpStatusCode: " + g.HttpStatusCode);
+                Console.WriteLine("HelpLink: " + g.HelpLink);
+                Console.WriteLine("Error: " + g.Error);
             }
         }
-    }
+        private void PubSub(string projectID)
+        {
+            PublisherServiceApiClient publisher = PublisherServiceApiClient.Create();
+            try
+            {
 
+                ProjectName projectName = ProjectName.FromProject(projectID);
+                IEnumerable<Topic> topics = publisher.ListTopics(projectName);
+                foreach (Topic t in topics)
+                {
+                    Console.Write(t.Name);
+                }
+            }
+            catch (Grpc.Core.RpcException e)
+            {
+                Console.WriteLine("Message: " + e.Message);
+                Console.WriteLine("Status: " + e.Status);
+
+                Console.WriteLine("Status.StatusCode: " + e.Status.StatusCode);
+                Console.WriteLine("Status.Detail: " + e.Status.Detail);
+
+                Console.WriteLine("=======================================");
+                GCPErrorHandler g = new GCPErrorHandler(e);
+                Console.WriteLine("Message: " + g.Message);
+                Console.WriteLine("Status: " + g.Status);
+
+                Console.WriteLine("Status.StatusCode: " + g.Status.StatusCode);
+                Console.WriteLine("Status.Detail: " + g.Status.Detail);
+            }
+        }
+
+        private void Compute(string projectID, string zone)
+        {
+            GoogleCredential credential = Task.Run(() => GoogleCredential.GetApplicationDefaultAsync()).Result;
+            if (credential.IsCreateScopedRequired)
+            {
+                credential = credential.CreateScoped("https://www.googleapis.com/auth/cloud-platform");
+            }
+            ComputeService computeService = new ComputeService(new BaseClientService.Initializer
+            {
+                HttpClientInitializer = credential,
+                ApplicationName = "Google-ComputeSample/0.1",
+            });
+
+            try
+            {
+                InstancesResource.ListRequest request = computeService.Instances.List(projectID, zone);
+
+                Data.InstanceList response;
+                do
+                {
+                    response = request.Execute();
+                    if (response.Items == null)
+                    {
+                        continue;
+                    }
+                    Console.WriteLine(">>> # Instances " + response.Items.ToString());
+                } while (response.NextPageToken != null);
+
+            }
+            catch (Google.GoogleApiException e)
+            {
+                Console.WriteLine("Message: " + e.Message);
+                Console.WriteLine("ServiceName: " + e.ServiceName);
+                Console.WriteLine("Source: " + e.Source);
+                Console.WriteLine("HttpStatusCode: " + e.HttpStatusCode);
+                Console.WriteLine("HelpLink: " + e.HelpLink);
+                Console.WriteLine("Error: " + e.Error);
+
+                Console.WriteLine("=======================================");
+
+                GCPErrorHandler g = new GCPErrorHandler(e);
+                Console.WriteLine("Message: " + g.Message);
+                Console.WriteLine("ServiceName: " + g.ServiceName);
+                Console.WriteLine("Source: " + g.Source);
+                Console.WriteLine("HttpStatusCode: " + g.HttpStatusCode);
+                Console.WriteLine("HelpLink: " + g.HelpLink);
+                Console.WriteLine("Error: " + g.Error);
+            }
+        }
+
+    }
 
 }

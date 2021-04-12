@@ -1,6 +1,6 @@
+const GCPErrorHandler = require('gcp_error_handler');
 
-
-function Basic(
+function gcs(
   bucketName,
   objectName,
 ) {
@@ -8,25 +8,92 @@ function Basic(
   const storage = new Storage();
   var file = storage.bucket(bucketName).file(objectName);
   file.download(function (err, contents) {
-
     if (err) {
-      // err is ApiError
+      //console.log(err)
       console.log("Error Code: " + err.code);
       console.log("Error Message: " + err.message);
       console.log("Error Errors: " + err.errors);
+      console.log("Error Response: " + err.response);
+      console.log("  Error Response typeof ", err.response.constructor.name)
+
+      console.log("================================")
+      const e = new GCPErrorHandler(err)
+      //console.log(e)
+      console.log("Error Code: " + e.code);
+      console.log("Error Message: " + e.message);
+      console.log("Error Errors: " + e.errors);
+      console.log("Error Response: " + e.response);
+      console.log("  Error Response typeof ", e.response.constructor.name)
     } else {
       console.log("file data: " + contents);
     }
   });
 }
 
+function gce(
+  projectID,
+  mzone,
+) {
+  const Compute = require('@google-cloud/compute');
+  const compute = new Compute();
 
-function Extended(
+  const vms = compute.getVMs({
+    maxResults: 10,
+  }).then(function (value) {
+    console.log(`Found ${value.length} VMs!`);
+    value.forEach(vm => console.log(vm));
+  }, function (err) {
+
+    console.log("Error Code: " + err.code);
+    console.log("Error Message: " + err.message);
+    console.log("Error Errors: " + err.errors);
+    console.log("  Error Errors typeof ", err.errors.constructor.name)
+    console.log("Error Response: " + err.response);
+    console.log("  Error Response typeof ", err.response.constructor.name)
+
+    console.log("================================")
+    const e = new GCPErrorHandler(err)
+
+    console.log("Error Code: " + e.code);
+    console.log("Error Message: " + e.message);
+    console.log("Error Errors: " + e.errors);
+    console.log("  Error Errors typeof ", err.errors.constructor.name)
+    console.log("Error Response: " + e.response);
+    console.log("  Error Response typeof ", err.response.constructor.name)
+  });
+}
+
+
+function pubsub(
+  projectID,
+) {
+  const { PubSub } = require('@google-cloud/pubsub');
+  const pubSubClient = new PubSub();
+  const topics = pubSubClient.getTopics().then(function (value) {
+    console.log(value);
+  }, function (err) {
+    //console.log(err)
+    console.log("Error Code: " + err.code);
+    console.log("Error Message: " + err.message);
+    console.log("Error Errors: " + err.errors);
+    console.log("Error Response: " + err.response);
+
+    console.log("================================")
+    const e = new GCPErrorHandler(err)
+    //console.log(e)
+    console.log("Error Code: " + e.code);
+    console.log("Error Message: " + e.message);
+    console.log("Error Errors: " + e.errors);
+    console.log("Error Response: " + e.response);
+  });
+}
+
+function asset(
   checkResource,
   identity,
   scope,
 ) {
-  const util = require('util');
+
   //const { google } = require('@google-cloud/asset/build/protos/protos');
   const { AssetServiceClient } = require('@google-cloud/asset');
 
@@ -49,41 +116,57 @@ function Extended(
   const result = client.analyzeIamPolicy(request, options).then(function (value) {
     console.log(util.inspect(value, { depth: null }));
   }, function (err) {
-    console.log('Code: ' + err.code);
-    console.log('Details: ' + err.details);
-    console.log('Message: ' + err.message);
 
-    if (err.metadata) {
-      // TODO: deserialize to approprate @type:      
-      const help_bytes = err.metadata.get('google.rpc.help-bin');
-      const protos = require('google-proto-files');
-      protos.load('./node_modules/google-proto-files/google/rpc/error_details.proto').then(function (root) {
-        const helpdef = root.lookup("google.rpc.Help");
-        const help = helpdef.decode(help_bytes[0])
-        help.links.forEach(element => {
-          console.log(element.description);
-          console.log(element.url);
-        })
-      }, function (err) {
-        console.log(err)
-      });
+    console.log("Error Code: " + err.code);
+    console.log("Error Message: " + err.message);
+    console.log("Error Errors: " + err.errors);
+    console.log("Error Response: " + err.response);
+
+    console.log("================================")
+
+    const e = new GCPErrorHandler(err, true)
+
+    console.log("Error Code: " + e.code);
+    console.log("Error Message: " + e.message);
+    console.log("Error Errors: " + e.errors);
+    console.log("Error Response: " + e.response);
+
+    if (e.isGoogleCloudError) {
+      console.log("Extract google.rpc.*  details")
+      var h = e.getHelp();
+      console.log("getHelp: ");
+      h.links.forEach(element => {
+        console.log(element.description);
+        console.log(element.url);
+      })
+      console.log("getBadRequest: " + e.getBadRequest());
     }
-
   });
 }
 
 const args = require('minimist')(process.argv.slice(2))
-mode = args['mode']
+api = args['api']
 
-if (mode == 'basic') {
+if (api == 'gcs') {
   bucketName = args['gcsBucket']
   objectName = args['gcsObject']
-  Basic(bucketName, objectName);
+  gcs(bucketName, objectName);
 }
 
-if (mode == 'extended') {
+if (api == 'asset') {
   checkResource = args['checkResource']
   identity = args['identity']
   scope = args['scope']
-  Extended(checkResource, identity, scope);
+  asset(checkResource, identity, scope);
+}
+
+if (api == 'pubsub') {
+  projectID = args['projectID']
+  pubsub(projectID);
+}
+
+if (api == 'compute') {
+  projectID = args['projectID']
+  zone = args['zone']
+  gce(projectID, zone);
 }

@@ -9,6 +9,9 @@
                 "build",
                 "${workspaceFolder}/dotnet.csproj",
                 "/property:GenerateFullPaths=true",
+                "/property:GenerateAssemblyTitleAttribute=false",            
+                "/property:GenerateAssemblyProductAttribute=false",
+                "/property:GenerateAssemblyDescriptionAttribute=false",                             
                 "/consoleloggerparameters:NoSummary"
             ],
             "problemMatcher": "$msCompile"

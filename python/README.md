@@ -65,7 +65,6 @@ In the following examples, the various libraries throw different error types, so
 virtualenv env
 source env/bin/activate
 pip install -r requirements.txt
-pip install -e "git+https://github.com/salrashid123/gcp_error_handler.git#egg=gcp-error-handler&subdirectory=python"
 
 export GOOGLE_APPLICATION_CREDENTIALS=/path/to/svc_account.json
 ```
@@ -466,4 +465,11 @@ def compute(project, zone):
         # print(ee)
     except Exception as err:
         print(err)
+```
+
+
+### Building gcp-error-handler package
+
+```bash
+python3 setup.py sdist
 ```

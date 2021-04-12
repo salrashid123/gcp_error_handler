@@ -183,7 +183,7 @@ def asset(scope, checkResource, identity):
         print(ee.grpc_status_code)
         print("Details: ")
         for e in ee.errors:
-            if (ee.grpc_status_code != None):
+            if (ee.is_google_cloud_error):
                 info = ee.get_google_rpc_help
                 if info != None:
                     for l in info.links:

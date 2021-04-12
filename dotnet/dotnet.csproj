@@ -9,7 +9,10 @@
     <PackageReference Include="Google.Api.CommonProtos" Version="2.2.0" />
     <PackageReference Include="Google.Cloud.Asset.V1" Version="2.6.0" />
     <PackageReference Include="Google.Cloud.Storage.V1" Version="3.4.0" />
+    <PackageReference Include="Google.Cloud.PubSub.V1" Version="2.4.0" />
+    <PackageReference Include="Google.Apis.Compute.v1" Version="1.51.0.2272" />
     <PackageReference Include="Microsoft.Extensions.CommandLineUtils" Version="1.1.1" />
+    <ProjectReference Include="./Github.Salrashid123.GCPErrorHandler/Github.Salrashid123.GCPErrorHandler.csproj" />
   </ItemGroup>
 
 </Project>

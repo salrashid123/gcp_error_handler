@@ -6,9 +6,11 @@
   },
   "dependencies": {
     "@google-cloud/asset": "^3.12.0",
+    "@google-cloud/compute": "^2.4.3",
+    "@google-cloud/pubsub": "^2.10.0",
     "@google-cloud/storage": "^5.8.1",
     "debug": "~2.2.0",
-    "google-proto-files": "^2.4.0",
+    "gcp_error_handler": "file:gcp_error_handler",
     "minimist": "^1.2.5"
   }
 }
