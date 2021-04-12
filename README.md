@@ -259,7 +259,7 @@ Not all GCP APIs return these error details.  While more and more APIs will retu
 >> **IMPORTANT** DO NOT USE in production...this is just a sample
 
 
-The implementation here sees to provide a backward-compatible no-op library that you can 'just use' to handle and extract the detailed errors.
+The implementation here seeks to provide a backward-compatible no-op library that you can 'just use' to handle and extract the detailed errors.
 
 
 For example, if you currently catch a google error using a try catch block
@@ -269,11 +269,13 @@ try:
   ...
 except google.cloud.exceptions.GoogleCloudError as err:
   print(err)
+  print(err.message)
 except googleapiclient.errors.HttpError as err:
-  print(err)    
+  print(err)
+  print(err.status_code)
 ```
 
-then passing utilizing the client library should be backwards compatible in the output and methods
+then applying the root error to this library should result in backwards output in not only printing the error but object methods that error originally provided
 
 ```python
 from gcp_error_handler.gcp_errors import GCPError
@@ -283,9 +285,11 @@ try:
 except google.cloud.exceptions.GoogleCloudError as err:
   ee = GCPError(err)
   print(ee)
+  print(ee.message)
 except googleapiclient.errors.HttpError as err:
   ee = GCPError(err)
-  print(ee)    
+  print(ee)
+  print(ee.status_code)
 ```
 
 The difference is if you enable an environment variable `export GOOGLE_ENABLE_ERROR_DETAIL=true`, then the output of the print() statements will automatically unmarshall any embedded error details and print to stdout.
@@ -323,6 +327,9 @@ except googleapiclient.errors.HttpError as err:
                 print('     BadRequest Description: ', l.description)
 
 ```
+
+The most clear awkwardness is with the bit above is using one class for multiple supers...but i'm looking for suggestion on improving this (maybe only wrap the class for `google.cloud.exceptions.GoogleCloudError`?)
+
 
 >> **You can find detail examples for each implementation within the README.md in each folder library `python/README.md`, `java/README.md`, `node/README.md`, `dotnet/README.md`**
 
