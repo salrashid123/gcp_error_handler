@@ -114,6 +114,8 @@ func (r *Error) enableErrorDetails() bool {
 
 }
 
+// https://pkg.go.dev/google.golang.org/genproto/googleapis/rpc/errdetails
+
 // GetGoogleRPCHelp returns google.rpc.Help
 func (r *Error) GetGoogleRPCHelp() (*errdetails.Help, error) {
 	if s, ok := status.FromError(r.Err); ok {

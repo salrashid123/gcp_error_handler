@@ -713,6 +713,94 @@ go run main.go  --api=pubsub --projectID  $PROJECT_ID
 go run main.go  --api=asset  --checkResource="//cloudresourcemanager.googleapis.com/projects/$PROJECT_ID" --identity="user:someuser@domain.com" --scope="projects/$PROJECT_ID"
 ```
 
+Note, the pubsub api call also supports redirecting redirecting quota information with the `--quotaProject=` parameter.  What that allows you to see is an errorInfo that includes service status, for example
+
+```bash
+$ curl -s -H "X-Goog-User-Project: 87380058272"  \
+   -X PUT -H "Authorization: Bearer `gcloud auth application-default print-access-token`" \
+   "https://pubsub.googleapis.com/v1/projects/test-pbusub-11/topics/topic1"
+
+{
+  "error": {
+    "code": 403,
+    "message": "Cloud Pub/Sub API has not been used in project 87380058272 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/pubsub.googleapis.com/overview?project=87380058272 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.",
+    "status": "PERMISSION_DENIED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.Help",
+        "links": [
+          {
+            "description": "Google developers console API activation",
+            "url": "https://console.developers.google.com/apis/api/pubsub.googleapis.com/overview?project=87380058272"
+          }
+        ]
+      },
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "reason": "SERVICE_DISABLED",
+        "domain": "googleapis.com",
+        "metadata": {
+          "service": "pubsub.googleapis.com",
+          "consumer": "projects/87380058272"
+        }
+      }
+    ]
+  }
+}
+```
+
+in go, that would be 
+
+```golang
+$  go run main.go --api=pubsub --projectID test-pbusub-11 --topicName=topic1 --quotaProject 87380058272
+
+Default:
+rpc error: code = PermissionDenied desc = Cloud Pub/Sub API has not been used in project 87380058272 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/pubsub.googleapis.com/overview?project=87380058272 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.
+------------------------------------
+Default Proposed:
+rpc error: code = PermissionDenied desc = Cloud Pub/Sub API has not been used in project 87380058272 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/pubsub.googleapis.com/overview?project=87380058272 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.
+------------------------------------
+Default Proposed with env-var:
+ google.rpc.Error: {"code":7,"message":"Cloud Pub/Sub API has not been used in project 87380058272 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/pubsub.googleapis.com/overview?project=87380058272 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","details":[{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Google developers console API activation","url":"https://console.developers.google.com/apis/api/pubsub.googleapis.com/overview?project=87380058272"}]},{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"SERVICE_DISABLED","domain":"googleapis.com","metadata":{"consumer":"projects/87380058272","service":"pubsub.googleapis.com"}}]}
+------------------------------------
+Proposed PrettyPrint:
+ google.rpc.Error: PrettyPrint({
+	"code": 7,
+	"message": "Cloud Pub/Sub API has not been used in project 87380058272 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/pubsub.googleapis.com/overview?project=87380058272 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.",
+	"details": [
+		{
+			"@type": "type.googleapis.com/google.rpc.Help",
+			"links": [
+				{
+					"description": "Google developers console API activation",
+					"url": "https://console.developers.google.com/apis/api/pubsub.googleapis.com/overview?project=87380058272"
+				}
+			]
+		},
+		{
+			"@type": "type.googleapis.com/google.rpc.ErrorInfo",
+			"reason": "SERVICE_DISABLED",
+			"domain": "googleapis.com",
+			"metadata": {
+				"consumer": "projects/87380058272",
+				"service": "pubsub.googleapis.com"
+			}
+		}
+	]
+})
+------------------------------------
+Proposed google.rpc.Help:
+  google.rpc.Help.Description: Google developers console API activation
+  google.rpc.Help.Url: https://console.developers.google.com/apis/api/pubsub.googleapis.com/overview?project=87380058272
+Proposed google.rpc.BadRequest:
+grpc/status.Status does not include type.googleapis.com/google.rpc.BadRequest
+Proposed google.rpc.ErrorInfo:
+  google.rpc.ErrorInfo.Domain: googleapis.com
+  google.rpc.ErrorInfo.Reason: SERVICE_DISABLED
+  google.rpc.ErrorInfo.Metadata  Key: consumer  Value: projects/87380058272
+  google.rpc.ErrorInfo.Metadata  Key: service  Value: pubsub.googleapis.com
+```
+
 ---
 ---
 

@@ -13,6 +13,7 @@ import (
 	"golang.org/x/oauth2/google"
 	compute "google.golang.org/api/compute/v1"
 	"google.golang.org/api/iterator"
+	"google.golang.org/api/option"
 
 	"log"
 
@@ -29,11 +30,13 @@ var (
 	checkResource = flag.String("checkResource", "", "Resource to check")
 	identity      = flag.String("identity", "", "Permission to check")
 
-	api         = flag.String("api", "", "gcs|compute|pubsub|asset")
-	gcsBucket   = flag.String("gcsBucket", "fabled-ray-104117-bucket", "GCS Bucket to access")
-	gcsObject   = flag.String("gcsObject", "foo.txt", "GCS object to access")
-	computeZone = flag.String("computeZone", "us-central1-a", "Compute Engine Zone")
-	projectID   = flag.String("projectID", "", "ProjectID")
+	api          = flag.String("api", "", "gcs|compute|pubsub|asset")
+	gcsBucket    = flag.String("gcsBucket", "fabled-ray-104117-bucket", "GCS Bucket to access")
+	gcsObject    = flag.String("gcsObject", "foo.txt", "GCS object to access")
+	computeZone  = flag.String("computeZone", "us-central1-a", "Compute Engine Zone")
+	projectID    = flag.String("projectID", "", "ProjectID")
+	topicName    = flag.String("topicName", "", "Topic Name to Create")
+	quotaProject = flag.String("quotaProject", "", "Consumer project for Quota (currently used only for pubsub")
 )
 
 func init() {
@@ -83,6 +86,7 @@ func runTestCases(ctx context.Context, client interface{}, err error) {
 	}
 
 	if gerr.IsStatusError {
+		// https://pkg.go.dev/google.golang.org/genproto/googleapis/rpc/errdetails
 		fmt.Printf("Proposed google.rpc.Help:\n")
 		h, err := gerr.GetGoogleRPCHelp()
 		if err != nil {
@@ -105,6 +109,19 @@ func runTestCases(ctx context.Context, client interface{}, err error) {
 				fmt.Printf("  google.rpc.BadRequest.FieldViolations.Description: %s\n", v.Description)
 			}
 		}
+
+		fmt.Printf("Proposed google.rpc.ErrorInfo:\n")
+		e, err := gerr.GetGoogleRPCErrorInfo()
+		if err != nil {
+			fmt.Printf("%v\n", err)
+		} else {
+			fmt.Printf("  google.rpc.ErrorInfo.Domain: %s\n", e.GetDomain())
+			fmt.Printf("  google.rpc.ErrorInfo.Reason: %s\n", e.GetReason())
+			for k, v := range e.GetMetadata() {
+				fmt.Printf("  google.rpc.ErrorInfo.Metadata  Key: %s  Value: %s\n", k, v)
+			}
+		}
+
 	}
 	return
 }
@@ -157,7 +174,7 @@ func main() {
 
 		bkt := storageClient.Bucket(*gcsBucket)
 		obj := bkt.Object(*gcsObject)
-		r, err := obj.NewReader(ctx)
+		r, err := obj.NewReader(ctx) //NewRangeReader(ctx, 109, 64*1024)
 		if err != nil {
 			runTestCases(ctx, storageClient, err)
 			return
@@ -169,8 +186,13 @@ func main() {
 		}
 	} else if *api == "pubsub" {
 
-		var topics []*pubsub.Topic
-		client, err := pubsub.NewClient(ctx, *projectID)
+		var client *pubsub.Client
+		var err error
+		if *quotaProject != "" {
+			client, err = pubsub.NewClient(ctx, *projectID, option.WithQuotaProject(*quotaProject))
+		} else {
+			client, err = pubsub.NewClient(ctx, *projectID)
+		}
 		if err != nil {
 			log.Printf("%v", err)
 			return
@@ -185,7 +207,16 @@ func main() {
 				runTestCases(ctx, client, err)
 				return
 			}
-			topics = append(topics, topic)
+			fmt.Printf("Topic %v\n", topic)
+		}
+
+		// Even if the caller has permissions to list topics,
+		// attempt to create an existing topic.  This will result in an error which
+		// will be shown in the handler
+		_, err = client.CreateTopic(ctx, *topicName)
+		if err != nil {
+			runTestCases(ctx, client, err)
+			return
 		}
 
 	} else if *api == "asset" {
