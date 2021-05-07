@@ -7,17 +7,17 @@ import (
 	"io"
 	"os"
 
+	"log"
+
 	asset "cloud.google.com/go/asset/apiv1"
 	"cloud.google.com/go/pubsub"
 	"cloud.google.com/go/storage"
+	gcperrors "github.com/salrashid123/gcp_error_handler/golang/errors"
 	"golang.org/x/oauth2/google"
 	compute "google.golang.org/api/compute/v1"
+	iam "google.golang.org/api/iam/v1"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
-
-	"log"
-
-	gcperrors "github.com/salrashid123/gcp_error_handler/golang/errors"
 	assetpb "google.golang.org/genproto/googleapis/cloud/asset/v1"
 )
 
@@ -30,7 +30,7 @@ var (
 	checkResource = flag.String("checkResource", "", "Resource to check")
 	identity      = flag.String("identity", "", "Permission to check")
 
-	api          = flag.String("api", "", "gcs|compute|pubsub|asset")
+	api          = flag.String("api", "", "gcs|compute|pubsub|asset|workloadidentity")
 	gcsBucket    = flag.String("gcsBucket", "fabled-ray-104117-bucket", "GCS Bucket to access")
 	gcsObject    = flag.String("gcsObject", "foo.txt", "GCS object to access")
 	computeZone  = flag.String("computeZone", "us-central1-a", "Compute Engine Zone")
@@ -53,13 +53,7 @@ func runTestCases(ctx context.Context, client interface{}, err error) {
 
 	os.Setenv("GOOGLE_ENABLE_ERROR_DETAIL", "true")
 
-	// defEnv := gcperrors.NewWithClient(ctx, client, gcperrors.Error{
-	// 	Err:         err,
-	// 	ReInterpret: true,
-	// })
-
 	defEnv := gcperrors.New(gcperrors.Error{
-		//Err: gerr.Err,
 		Err: err,
 	})
 	fmt.Printf("Default Proposed with env-var:\n %v\n", defEnv)
@@ -67,25 +61,36 @@ func runTestCases(ctx context.Context, client interface{}, err error) {
 
 	os.Setenv("GOOGLE_ENABLE_ERROR_DETAIL", "false")
 	prettyErrors := gcperrors.New(gcperrors.Error{
-		//Err: gerr.Err,
 		Err:         err,
 		PrettyPrint: true,
 	})
 	fmt.Printf("Proposed PrettyPrint:\n %v\n", prettyErrors)
 	fmt.Println("------------------------------------")
 
-	if gerr.IsGoogleAPIError {
+	if gerr.IsGoogleAPIError() {
 		fmt.Printf("Proposed googleapi.Error:\n %v\n", gerr)
 		prettyErrors := gcperrors.New(gcperrors.Error{
-			//Err: gerr.Err,
 			Err:         err,
 			PrettyPrint: true,
 		})
 		fmt.Println("------------------------------------")
 		fmt.Printf("Proposed PrettyPrint:\n %v\n", prettyErrors)
 	}
+	fmt.Println("------------------------------------")
 
-	if gerr.IsStatusError {
+	re := gcperrors.NewWithClient(ctx, client, gcperrors.Error{
+		Err: err,
+	})
+	fmt.Printf("reInterpreted error:\n %v\n", re)
+	rr, err := re.GetReInterpretedErrors()
+	if err != nil {
+		fmt.Printf("No reinterpreted errors fond \n")
+	} else {
+		fmt.Printf("        reInterpreted:\n %v\n", rr)
+	}
+	fmt.Println("------------------------------------")
+
+	if gerr.IsStatusError() {
 		// https://pkg.go.dev/google.golang.org/genproto/googleapis/rpc/errdetails
 		fmt.Printf("Proposed google.rpc.Help:\n")
 		h, err := gerr.GetGoogleRPCHelp()
@@ -129,7 +134,7 @@ func runTestCases(ctx context.Context, client interface{}, err error) {
 func main() {
 	flag.Parse()
 
-	if *api != "gcs" && *api != "compute" && *api != "pubsub" && *api != "asset" {
+	if *api != "gcs" && *api != "compute" && *api != "pubsub" && *api != "asset" && *api != "workloadidentity" {
 		log.Fatal("api must be either gcs,compute, pubsub or asset")
 	}
 
@@ -217,6 +222,35 @@ func main() {
 		if err != nil {
 			runTestCases(ctx, client, err)
 			return
+		}
+
+	} else if *api == "workloadidentity" {
+		log.Printf("================ Using  (workloadidentity) ======================\n")
+
+		if *projectID == "" {
+			log.Fatal("Must specify *projectID")
+		}
+
+		iamService, err := iam.NewService(ctx)
+		if err != nil {
+			fmt.Printf("%v\n", err)
+			return
+		}
+
+		ors := iam.NewProjectsLocationsWorkloadIdentityPoolsService(iamService)
+		nextPageToken := ""
+		for {
+			ps, err := ors.List(fmt.Sprintf("projects/%s/locations/global", *projectID)).PageToken(nextPageToken).Do()
+			if err != nil {
+				runTestCases(ctx, iamService, err)
+				return
+			}
+			fmt.Printf("================ Getting Workloads %v\n", ps.NextPageToken)
+			nextPageToken = ps.NextPageToken
+			if nextPageToken == "" {
+				break
+			}
+			nextPageToken = ps.NextPageToken
 		}
 
 	} else if *api == "asset" {

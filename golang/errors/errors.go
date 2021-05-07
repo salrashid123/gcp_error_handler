@@ -2,10 +2,13 @@ package errors
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
+	"regexp"
 	"strconv"
 
 	"github.com/golang/protobuf/jsonpb"
@@ -20,11 +23,11 @@ import (
 type Error struct {
 	Err              error
 	PrettyPrint      bool
-	IsGoogleAPIError bool
-	IsStatusError    bool
-	//ReInterpret      bool
-	//rootCtx          context.Context
-	//client           interface{}
+	ReInterpret      bool
+	isGoogleAPIError bool
+	isStatusError    bool
+	rootCtx          context.Context
+	client           interface{}
 }
 
 const (
@@ -32,13 +35,21 @@ const (
 	GOOGLE_ENABLE_ERROR_DETAIL = "GOOGLE_ENABLE_ERROR_DETAIL"
 )
 
+func (r *Error) IsGoogleAPIError() bool {
+	return r.isGoogleAPIError
+}
+
+func (r *Error) IsStatusError() bool {
+	return r.isStatusError
+}
+
 func (r *Error) Error() string {
 
 	if !r.enableErrorDetails() {
 		return r.Err.Error()
 	}
 
-	if r.IsStatusError {
+	if r.IsStatusError() {
 
 		s, err := r.GetStatus()
 		if err != nil {
@@ -61,7 +72,7 @@ func (r *Error) Error() string {
 		}
 		return fmt.Errorf("google.rpc.Error: %s", result).Error()
 
-	} else if r.IsGoogleAPIError {
+	} else if r.IsGoogleAPIError() {
 
 		gerror, err := r.GetGoogleAPIError()
 		if err != nil {
@@ -250,8 +261,8 @@ func New(err Error) *Error {
 
 	return &Error{
 		Err:              err.Err,
-		IsGoogleAPIError: isGoogleAPIError,
-		IsStatusError:    isStatusError,
+		isGoogleAPIError: isGoogleAPIError,
+		isStatusError:    isStatusError,
 		PrettyPrint:      err.PrettyPrint,
 	}
 }
@@ -263,74 +274,99 @@ func New(err Error) *Error {
 // but provide additional information, help links to the user
 
 //  The idea is to fill up the errorList with a number (few) ReinterpretedError messages that can be set back to the user as a debug message
+var errorList = []ReInterpretedError{
+	{
+		Client:      "*pubsub.Client",
+		Domain:      "googleapis.com",
+		Reason:      "USER_PROJECT_DENIED",
+		Key:         "consumer",
+		Value:       "projects/(.+)",
+		Description: "The api call you are using cannot bill its the usage to %s.  Please add the `serviceusage.services.use` permission to the current user [%s]  on that project",
+	},
+	{
+		Client:      "*pubsub.Client",
+		Domain:      "googleapis.com",
+		Reason:      "USER_PROJECT_DENIED",
+		Key:         "service",
+		Value:       "pubsub.googleapis.com",
+		Description: "Billing for API [%s] cannot be used on project [%s]",
+	},
+}
 
-// var errorList = []ReinterpretedError{
-// 	{
-// 		Description: "This error likely means you are doing someing wrong with VPC-SC",
-// 		URL:         "https://cloud.google.com/vpc-service-controls/docs/service-perimeters",
-// 		errorMatch:  "Request is prohibited by organization's policy. vpcServiceControlsUniqueIdentifier",
-// 	},
-// 	{
-// 		Description: "This error likely means you are doing someing wrong with Access Context",
-// 		URL:         "https://cloud.google.com/beyondcorp-enterprise/docs/securing-console-and-apis",
-// 		errorMatch:  "https://accounts.google.com/info/servicerestricted",
-// 	},
-// }
+// ReInterpretedError represents an error added in locally
+type ReInterpretedError struct {
+	Client      string `json:"client"`
+	Context     string `json:"context,omitempty"`
+	Domain      string `json:"domain,omitempty"`
+	Reason      string `json:"reason,omitempty"`
+	Key         string `json:"key,omitempty"`
+	Value       string `json:"value,omitempty"`
+	Description string `json:"description,omitempty"`
+}
 
-// // ReinterpretedError represents an error added in locally
-// type ReinterpretedError struct {
-// 	Description string `json:"description,omitempty"`
-// 	URL         string `json:"url,omitempty"`
-// 	errorMatch  string
-// }
+// GetReInterpretedErrors returns []ReInterpretedError
+func (r *Error) GetReInterpretedErrors() (string, error) {
 
-// // ReInterpretedErrors represents list of errors added in locally
-// type ReInterpretedErrors struct {
-// 	Client             string               `json:"client"`
-// 	Context            string               `json:"context,omitempty"`
-// 	ReinterpretedError []ReinterpretedError `json:"reinterpreted_errors,omitempty"`
-// }
+	ei, err := r.GetGoogleRPCErrorInfo()
+	if err != nil {
+		return "", errors.New("Reinterpreted Error not available")
+	}
 
-// func (r *Error) reInterpret(err string) string {
-// 	if !(r.ReInterpret) {
-// 		return err
-// 	}
+	//  the other way is asking each client library to interpret the error for you
 
-// 	fmt.Printf("Reinterpreting Error for client type %s", reflect.TypeOf(r.client))
+	//    ret  = r.client.InterpretError(ctx, ei)
 
-// 	var rmsg []ReinterpretedError
-// 	for _, v := range errorList {
-// 		if strings.Contains(err, v.errorMatch) {
-// 			rmsg = append(rmsg, v)
-// 		}
-// 	}
+	//  but no such interface exists so we'll do this by hand outside of the client library
 
-// 	rmsgs := &ReInterpretedErrors{
-// 		Client:             reflect.TypeOf(r.client).String(),
-// 		ReinterpretedError: rmsg,
-// 	}
+	//fmt.Printf("Reinterpreting Error for client type %s\n", reflect.TypeOf(r.client))
+	//fmt.Printf("Reinterpreting ErrorInfo %v\n", ei)
 
-// 	e, jerr := json.Marshal(rmsgs)
-// 	if jerr != nil {
-// 		return err
-// 	}
+	type CustomError struct {
+		CustomError []string `json:"custom_error,omitempty"`
+	}
+	sret := &CustomError{}
+	for k, v := range ei.Metadata {
+		for _, el := range errorList {
+			if el.Key == k {
+				if ei.Reason == "USER_PROJECT_DENIED" && ei.Domain == "googleapis.com" && reflect.TypeOf(r.client).String() == el.Client {
+					if k == "consumer" {
+						re := regexp.MustCompile(el.Value)
+						res := re.FindStringSubmatch(v)
+						if len(res) > 0 {
+							sret.CustomError = append(sret.CustomError, fmt.Sprintf(el.Description, res[0], "someuser"))
 
-// 	return err + "\nReInterpreted Errors:\n" + string(e)
-// }
+						} else {
+							sret.CustomError = append(sret.CustomError, el.Description)
+						}
+					} else if k == "service" {
+						sret.CustomError = append(sret.CustomError, fmt.Sprintf(el.Description, v, "somebillingproject"))
+					}
+				}
+			}
+		}
+	}
 
-// // New creates structured Error object and enables Reinterpreted Errors
-// func NewWithClient(ctx context.Context, client interface{}, err Error) *Error {
+	result, _ := json.Marshal(sret)
 
-// 	_, isGoogleAPIError := err.Err.(*googleapi.Error)
-// 	_, isStatusError := status.FromError(err.Err)
+	var prettyJSON bytes.Buffer
+	error := json.Indent(&prettyJSON, []byte(result), "", "\t")
+	if error != nil {
+		return "", fmt.Errorf("googleapi.Error: PrettyPrint(%s)", result)
+	}
+	return prettyJSON.String(), nil
+}
 
-// 	return &Error{
-// 		Err:              err.Err,
-// 		IsGoogleAPIError: isGoogleAPIError,
-// 		IsStatusError:    isStatusError,
-// 		PrettyPrint:      err.PrettyPrint,
-// 		ReInterpret:      err.ReInterpret,
-// 		rootCtx:          ctx,
-// 		client:           client,
-// 	}
-// }
+func NewWithClient(ctx context.Context, client interface{}, err Error) *Error {
+
+	_, isGoogleAPIError := err.Err.(*googleapi.Error)
+	_, isStatusError := status.FromError(err.Err)
+
+	return &Error{
+		Err:              err.Err,
+		isGoogleAPIError: isGoogleAPIError,
+		isStatusError:    isStatusError,
+		PrettyPrint:      err.PrettyPrint,
+		rootCtx:          ctx,
+		client:           client,
+	}
+}

@@ -1259,3 +1259,14 @@ Hopefully, these errors will get returned by default and a simple `print` comman
 Default:
 rpc error: code = PermissionDenied desc = Request denied by Cloud IAM.
 ```
+
+---
+
+
+```bash
+	go run main.go --api=pubsub --projectID tfabled-ray-104117 --topicName=topic1 --quotaProject 87380058272
+	go run main.go --api=compute  --computeZone us-central1-a      --projectID fabled-ray-104117
+	go run main.go --api=gcs --gcsBucket fabled-ray-104117-bucket      --gcsObject foo.txt
+  go run main.go --api=workloadidentity --projectID fabled-ray-104117
+	go run main.go --api=asset --checkResource="//cloudresourcemanager.googleapis.com/projects/fabled-ray-104117" --identity="user:admin@esodemoapp2.com" --scope="projects/fabled-ray-104117"
+```
