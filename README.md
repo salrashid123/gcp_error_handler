@@ -146,6 +146,52 @@ We're not done yet...the error details is a list of different types...for exampl
 }
 ```
 
+Also should note, the error Dtail information is also gated by the type of user-agent thats sent.  If its the cloud-sdk which currently cannot parse the detail, no extra info will be sent:
+
+
+```bash
+$ curl -s -H "user-agent: google-api-go-client/0.5"  \
+    -H "Authorization: Bearer `gcloud auth application-default print-access-token`" \
+    "https://iam.googleapis.com/v1beta/projects/mineral-minutia-820/locations/global/workloadIdentityPools"
+{
+  "error": {
+    "code": 403,
+    "message": "Permission 'iam.workloadIdentityPools.list' denied on resource '//iam.googleapis.com/projects/mineral-minutia-820/locations/global' (or it may not exist).",
+    "errors": [
+      {
+        "message": "Permission 'iam.workloadIdentityPools.list' denied on resource '//iam.googleapis.com/projects/mineral-minutia-820/locations/global' (or it may not exist).",
+        "domain": "global",
+        "reason": "forbidden"
+      }
+    ],
+    "status": "PERMISSION_DENIED"
+  }
+}
+
+
+$ curl -s -H "user-agent: foo"  \
+    -H "Authorization: Bearer `gcloud auth application-default print-access-token`" \
+    "https://iam.googleapis.com/v1beta/projects/mineral-minutia-820/locations/global/workloadIdentityPools"
+{
+  "error": {
+    "code": 403,
+    "message": "Permission 'iam.workloadIdentityPools.list' denied on resource '//iam.googleapis.com/projects/mineral-minutia-820/locations/global' (or it may not exist).",
+    "status": "PERMISSION_DENIED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "reason": "IAM_PERMISSION_DENIED",
+        "domain": "iam.googleapis.com",
+        "metadata": {
+          "resource": "projects/mineral-minutia-820/locations/global",
+          "permission": "iam.workloadIdentityPools.list"
+        }
+      }
+    ]
+  }
+}
+```
+
 >> NOTE: This repository is *NOT* supported by Google.  Use these code samples as guides to wrap error handlers or to decode them, if necessary
 
 
